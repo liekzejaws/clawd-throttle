@@ -2,7 +2,7 @@
 
 Route every LLM request to the cheapest model that can handle it.
 
-Clawd Throttle is an OpenClaw skill (MCP server) that classifies prompt complexity in under 1ms and routes to the cheapest capable model across Anthropic and Google APIs.
+Clawd Throttle is an OpenClaw skill (MCP server) and HTTP reverse proxy that classifies prompt complexity in under 1ms and routes to the cheapest capable model across Anthropic and Google APIs.
 
 ## Quick Start
 
@@ -27,6 +27,126 @@ npm run setup:unix     # macOS/Linux
 }
 ```
 
+## HTTP Proxy Mode
+
+Clawd Throttle can run as an HTTP reverse proxy that accepts OpenAI and Anthropic API formats. Any client that can point at a custom base URL works without code changes — just swap the URL.
+
+### Starting the Proxy
+
+```bash
+# Via environment variable
+CLAWD_THROTTLE_HTTP=true npm start
+
+# Via CLI flag (runs both HTTP + MCP stdio)
+npm start -- --http
+
+# HTTP only (no MCP stdio transport)
+npm start -- --http-only
+
+# Custom port (default: 8484)
+CLAWD_THROTTLE_HTTP_PORT=9090 CLAWD_THROTTLE_HTTP=true npm start
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/messages` | Anthropic Messages API format |
+| POST | `/v1/chat/completions` | OpenAI Chat Completions format |
+| GET | `/health` | Health check with uptime and mode |
+| GET | `/stats` | Routing stats (optional `?days=N`, default 30) |
+
+### Examples
+
+**Anthropic format:**
+```bash
+curl http://localhost:8484/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "hello"}],
+    "max_tokens": 100
+  }'
+```
+
+**OpenAI format:**
+```bash
+curl http://localhost:8484/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "system", "content": "You are helpful."},
+      {"role": "user", "content": "Explain monads in Haskell"}
+    ],
+    "max_tokens": 1000
+  }'
+```
+
+**Streaming:**
+```bash
+curl --no-buffer http://localhost:8484/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Write a haiku"}],
+    "max_tokens": 100,
+    "stream": true
+  }'
+```
+
+**Force a specific model:**
+```bash
+curl http://localhost:8484/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "X-Throttle-Force-Model: opus" \
+  -d '{
+    "messages": [{"role": "user", "content": "hello"}],
+    "max_tokens": 100
+  }'
+```
+
+**Health check:**
+```bash
+curl http://localhost:8484/health
+# {"status":"ok","mode":"standard","uptime":42.5}
+```
+
+**Stats:**
+```bash
+curl http://localhost:8484/stats?days=7
+```
+
+### Response Headers
+
+Every proxied response includes routing metadata headers:
+
+| Header | Description |
+|--------|-------------|
+| `X-Throttle-Model` | The model that handled the request |
+| `X-Throttle-Tier` | Classified tier: simple, standard, or complex |
+| `X-Throttle-Score` | Raw classifier score (0.00–1.00) |
+
+### Client Configuration
+
+Point any OpenAI-compatible client at the proxy:
+
+```python
+# Python (openai SDK)
+import openai
+client = openai.OpenAI(base_url="http://localhost:8484/v1", api_key="unused")
+response = client.chat.completions.create(
+    model="auto",
+    messages=[{"role": "user", "content": "hello"}],
+)
+```
+
+```typescript
+// TypeScript (Anthropic SDK)
+import Anthropic from '@anthropic-ai/sdk';
+const client = new Anthropic({
+  baseURL: 'http://localhost:8484',
+  apiKey: 'unused',
+});
+```
+
 ## Routing Modes
 
 | Mode | Simple | Standard | Complex |
@@ -37,7 +157,7 @@ npm run setup:unix     # macOS/Linux
 
 ## How It Works
 
-1. Prompt arrives via `route_request` MCP tool
+1. Prompt arrives via `route_request` MCP tool or HTTP proxy endpoint
 2. Classifier scores it on 8 dimensions in <1ms:
    - Token count, code presence, reasoning markers, simplicity indicators
    - Multi-step patterns, question count, system prompt signals, conversation depth
@@ -80,6 +200,8 @@ Environment variables override config file:
 - `GOOGLE_AI_API_KEY` - Google AI API key
 - `CLAWD_THROTTLE_MODE` - eco, standard, or performance
 - `CLAWD_THROTTLE_LOG_LEVEL` - debug, info, warn, error
+- `CLAWD_THROTTLE_HTTP` - set to `true` to enable the HTTP proxy
+- `CLAWD_THROTTLE_HTTP_PORT` - HTTP proxy port (default: 8484)
 
 ## Requirements
 

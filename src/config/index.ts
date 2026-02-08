@@ -46,6 +46,15 @@ export function loadConfig(): ThrottleConfig {
   if (process.env['CLAWD_THROTTLE_LOG_LEVEL']) {
     config.logging.level = process.env['CLAWD_THROTTLE_LOG_LEVEL'] as ThrottleConfig['logging']['level'];
   }
+  if (process.env['CLAWD_THROTTLE_HTTP'] === 'true' || process.env['CLAWD_THROTTLE_HTTP'] === '1') {
+    config.http.enabled = true;
+  }
+  if (process.env['CLAWD_THROTTLE_HTTP_PORT']) {
+    const port = parseInt(process.env['CLAWD_THROTTLE_HTTP_PORT'], 10);
+    if (!isNaN(port) && port > 0 && port < 65536) {
+      config.http.port = port;
+    }
+  }
 
   return config;
 }

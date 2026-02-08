@@ -31,6 +31,10 @@ export const defaults: ThrottleConfig = {
     },
   },
   modelCatalogPath: path.join(projectRoot, 'data', 'model-catalog.json'),
+  http: {
+    port: 8484,
+    enabled: false,
+  },
 };
 
 export { configDir };

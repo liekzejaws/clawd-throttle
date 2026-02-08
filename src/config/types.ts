@@ -29,4 +29,9 @@ export interface ThrottleConfig {
   };
 
   modelCatalogPath: string;
+
+  http: {
+    port: number;
+    enabled: boolean;
+  };
 }

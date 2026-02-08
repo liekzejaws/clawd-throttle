@@ -1,3 +1,4 @@
+import { parseArgs } from 'node:util';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { loadConfig } from './config/index.js';
@@ -11,6 +12,14 @@ import { registerResources } from './server/resources.js';
 import { registerPrompts } from './server/prompts.js';
 
 const log = createLogger('main');
+
+const { values: flags } = parseArgs({
+  options: {
+    http: { type: 'boolean', default: false },
+    'http-only': { type: 'boolean', default: false },
+  },
+  strict: false,
+});
 
 async function main(): Promise<void> {
   log.info('Clawd Throttle starting...');
@@ -31,22 +40,32 @@ async function main(): Promise<void> {
   const logReader = new LogReader(config.logging.logFilePath);
   log.info(`Routing log: ${config.logging.logFilePath}`);
 
-  // 5. Create MCP server
-  const server = new McpServer({
-    name: 'clawd-throttle',
-    version: '1.0.0',
-  });
+  // 5. Start HTTP proxy if enabled
+  const httpEnabled = config.http.enabled || flags.http || flags['http-only'];
+  if (httpEnabled) {
+    const { createHttpProxy } = await import('./server/http-proxy.js');
+    const httpServer = createHttpProxy({ config, registry, weights, logWriter, logReader });
+    httpServer.listen(config.http.port, () => {
+      log.info(`HTTP proxy listening on http://localhost:${config.http.port}`);
+    });
+  }
 
-  // 6. Register tools, resources, and prompts
-  registerTools(server, config, registry, weights, logWriter, logReader);
-  registerResources(server, config, logReader);
-  registerPrompts(server);
-  log.info('MCP tools, resources, and prompts registered');
+  // 6. Start MCP stdio server (unless --http-only)
+  if (!flags['http-only']) {
+    const server = new McpServer({
+      name: 'clawd-throttle',
+      version: '1.0.0',
+    });
 
-  // 7. Connect via stdio transport
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  log.info('Clawd Throttle is running on stdio transport');
+    registerTools(server, config, registry, weights, logWriter, logReader);
+    registerResources(server, config, logReader);
+    registerPrompts(server);
+    log.info('MCP tools, resources, and prompts registered');
+
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    log.info('Clawd Throttle is running on stdio transport');
+  }
 }
 
 main().catch((err) => {

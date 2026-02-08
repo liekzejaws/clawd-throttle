@@ -23,3 +23,10 @@ export interface ProxyResponse {
   latencyMs: number;
   finishReason: string;
 }
+
+export interface StreamingProxyResult {
+  response: Response;
+  modelId: string;
+  provider: ApiProvider;
+  startMs: number;
+}
