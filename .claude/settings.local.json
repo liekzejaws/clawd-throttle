@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(npm install:*)",
+      "Bash(where:*)",
+      "Bash(cmd /c \"where npm\")",
+      "Bash(cmd /c \"npm --version\")",
+      "Bash(powershell -Command \"npm --version\")",
+      "Bash(powershell -Command \"node --version\")",
+      "Bash(git -C . status)",
+      "Bash(git --version:*)",
+      "Bash(gh:*)",
+      "Bash(git -C \"D:\\\\Claude Workspace\\\\Clawd Throttle\" init)",
+      "Bash(git -C \"D:\\\\Claude Workspace\\\\Clawd Throttle\" add .)",
+      "Bash(git -C \"D:\\\\Claude Workspace\\\\Clawd Throttle\" status)",
+      "Bash(git -C \"D:\\\\Claude Workspace\\\\Clawd Throttle\" add .claude .env.example .gitignore README.md SKILL.md data/ package.json scripts/ src/ tests/ tsconfig.json vitest.config.ts)"
+    ]
+  }
+}

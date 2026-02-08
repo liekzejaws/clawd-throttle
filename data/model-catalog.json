@@ -1,0 +1,28 @@
+{
+  "models": [
+    {
+      "id": "gemini-2.5-flash",
+      "displayName": "Gemini 2.5 Flash",
+      "provider": "google",
+      "inputCostPerMTok": 0.15,
+      "outputCostPerMTok": 0.60,
+      "maxContextTokens": 1048576
+    },
+    {
+      "id": "claude-sonnet-4-5-20250514",
+      "displayName": "Claude Sonnet 4.5",
+      "provider": "anthropic",
+      "inputCostPerMTok": 3.00,
+      "outputCostPerMTok": 15.00,
+      "maxContextTokens": 200000
+    },
+    {
+      "id": "claude-opus-4-5-20250514",
+      "displayName": "Claude Opus 4.5",
+      "provider": "anthropic",
+      "inputCostPerMTok": 5.00,
+      "outputCostPerMTok": 25.00,
+      "maxContextTokens": 200000
+    }
+  ]
+}
