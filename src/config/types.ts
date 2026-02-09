@@ -15,6 +15,36 @@ export interface ThrottleConfig {
     baseUrl: string;
   };
 
+  openai: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
+  deepseek: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
+  xai: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
+  moonshot: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
+  mistral: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
+  ollama: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
   logging: {
     level: LogLevel;
     logFilePath: string;
@@ -29,6 +59,7 @@ export interface ThrottleConfig {
   };
 
   modelCatalogPath: string;
+  routingTablePath: string;
 
   http: {
     port: number;

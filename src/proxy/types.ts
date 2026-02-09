@@ -30,3 +30,8 @@ export interface StreamingProxyResult {
   provider: ApiProvider;
   startMs: number;
 }
+
+export interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+}

@@ -1,12 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { routeRequest } from '../../../src/router/engine.js';
-import { ModelRegistry } from '../../../src/router/model-registry.js';
+import { ModelRegistry, loadRoutingTable } from '../../../src/router/model-registry.js';
 import type { ClassificationResult } from '../../../src/classifier/types.js';
 import type { OverrideResult } from '../../../src/router/types.js';
+import type { ThrottleConfig } from '../../../src/config/types.js';
 import path from 'node:path';
 
 const registry = new ModelRegistry(path.resolve('data/model-catalog.json'));
+const routingTable = loadRoutingTable(path.resolve('data/routing-table.json'));
 const noOverride: OverrideResult = { kind: 'none' };
+
+// Config with Anthropic + Google + Ollama configured (backward-compat baseline)
+const config = {
+  mode: 'standard',
+  anthropic: { apiKey: 'test-key', baseUrl: 'https://api.anthropic.com' },
+  google: { apiKey: 'test-key', baseUrl: 'https://generativelanguage.googleapis.com' },
+  openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1' },
+  deepseek: { apiKey: '', baseUrl: 'https://api.deepseek.com/v1' },
+  xai: { apiKey: '', baseUrl: 'https://api.x.ai/v1' },
+  moonshot: { apiKey: '', baseUrl: 'https://api.moonshot.ai/v1' },
+  mistral: { apiKey: '', baseUrl: 'https://api.mistral.ai/v1' },
+  ollama: { apiKey: '', baseUrl: 'http://localhost:11434/v1' },
+  logging: { level: 'info', logFilePath: '' },
+  classifier: { weightsPath: '', thresholds: { simpleMax: 0.30, complexMin: 0.65 } },
+  modelCatalogPath: '',
+  routingTablePath: '',
+  http: { port: 8484, enabled: false },
+} as ThrottleConfig;
 
 function makeClassification(tier: 'simple' | 'standard' | 'complex', score: number): ClassificationResult {
   return {
@@ -23,66 +43,72 @@ function makeClassification(tier: 'simple' | 'standard' | 'complex', score: numb
 
 describe('routeRequest', () => {
   describe('eco mode', () => {
-    it('routes simple to Flash', () => {
-      const result = routeRequest(makeClassification('simple', 0.1), 'eco', noOverride, registry);
-      expect(result.model.id).toBe('gemini-2.5-flash');
+    it('routes simple to Ollama (cheapest in preference)', () => {
+      const result = routeRequest(makeClassification('simple', 0.1), 'eco', noOverride, registry, config, routingTable);
+      // Preference: ollama-default, gemini-2.0-flash-lite, gpt-5-nano, mistral-small, grok-4.1-fast
+      expect(result.model.id).toBe('ollama-default');
     });
 
     it('routes standard to Flash', () => {
-      const result = routeRequest(makeClassification('standard', 0.4), 'eco', noOverride, registry);
+      const result = routeRequest(makeClassification('standard', 0.4), 'eco', noOverride, registry, config, routingTable);
+      // Preference: gemini-2.5-flash, gpt-4o-mini, deepseek-chat, grok-3-mini
       expect(result.model.id).toBe('gemini-2.5-flash');
     });
 
     it('routes complex to Sonnet', () => {
-      const result = routeRequest(makeClassification('complex', 0.8), 'eco', noOverride, registry);
-      expect(result.model.id).toBe('claude-sonnet-4-5-20250514');
+      const result = routeRequest(makeClassification('complex', 0.8), 'eco', noOverride, registry, config, routingTable);
+      // Preference: deepseek-reasoner, kimi-k2.5, claude-sonnet-4-5
+      // DeepSeek + Moonshot not configured => Sonnet
+      expect(result.model.id).toBe('claude-sonnet-4-5');
     });
   });
 
   describe('standard mode', () => {
     it('routes simple to Flash', () => {
-      const result = routeRequest(makeClassification('simple', 0.1), 'standard', noOverride, registry);
+      const result = routeRequest(makeClassification('simple', 0.1), 'standard', noOverride, registry, config, routingTable);
       expect(result.model.id).toBe('gemini-2.5-flash');
     });
 
     it('routes standard to Sonnet', () => {
-      const result = routeRequest(makeClassification('standard', 0.4), 'standard', noOverride, registry);
-      expect(result.model.id).toBe('claude-sonnet-4-5-20250514');
+      const result = routeRequest(makeClassification('standard', 0.4), 'standard', noOverride, registry, config, routingTable);
+      // Preference: kimi-k2.5, claude-sonnet-4-5, gpt-5.1, deepseek-reasoner
+      // Moonshot not configured => Sonnet
+      expect(result.model.id).toBe('claude-sonnet-4-5');
     });
 
     it('routes complex to Opus', () => {
-      const result = routeRequest(makeClassification('complex', 0.8), 'standard', noOverride, registry);
-      expect(result.model.id).toBe('claude-opus-4-5-20250514');
+      const result = routeRequest(makeClassification('complex', 0.8), 'standard', noOverride, registry, config, routingTable);
+      expect(result.model.id).toBe('claude-opus-4-5');
     });
   });
 
   describe('performance mode', () => {
-    it('routes simple to Sonnet', () => {
-      const result = routeRequest(makeClassification('simple', 0.1), 'performance', noOverride, registry);
-      expect(result.model.id).toBe('claude-sonnet-4-5-20250514');
+    it('routes simple to Haiku', () => {
+      const result = routeRequest(makeClassification('simple', 0.1), 'performance', noOverride, registry, config, routingTable);
+      expect(result.model.id).toBe('claude-haiku-4-5');
     });
 
-    it('routes standard to Opus', () => {
-      const result = routeRequest(makeClassification('standard', 0.4), 'performance', noOverride, registry);
-      expect(result.model.id).toBe('claude-opus-4-5-20250514');
+    it('routes standard to Sonnet', () => {
+      const result = routeRequest(makeClassification('standard', 0.4), 'performance', noOverride, registry, config, routingTable);
+      expect(result.model.id).toBe('claude-sonnet-4-5');
     });
 
-    it('routes complex to Opus', () => {
-      const result = routeRequest(makeClassification('complex', 0.8), 'performance', noOverride, registry);
-      expect(result.model.id).toBe('claude-opus-4-5-20250514');
+    it('routes complex to Opus 4.6', () => {
+      const result = routeRequest(makeClassification('complex', 0.8), 'performance', noOverride, registry, config, routingTable);
+      expect(result.model.id).toBe('claude-opus-4-6');
     });
   });
 
   describe('overrides', () => {
     it('uses forced model when override is active', () => {
-      const override: OverrideResult = { kind: 'force_opus', forcedModelId: 'claude-opus-4-5-20250514' };
-      const result = routeRequest(makeClassification('simple', 0.1), 'eco', override, registry);
-      expect(result.model.id).toBe('claude-opus-4-5-20250514');
+      const override: OverrideResult = { kind: 'force_opus', forcedModelId: 'claude-opus-4-6' };
+      const result = routeRequest(makeClassification('simple', 0.1), 'eco', override, registry, config, routingTable);
+      expect(result.model.id).toBe('claude-opus-4-6');
       expect(result.override).toBe('force_opus');
     });
 
     it('uses normal routing when override is none', () => {
-      const result = routeRequest(makeClassification('simple', 0.1), 'eco', noOverride, registry);
+      const result = routeRequest(makeClassification('standard', 0.4), 'eco', noOverride, registry, config, routingTable);
       expect(result.override).toBe('none');
       expect(result.model.id).toBe('gemini-2.5-flash');
     });

@@ -1,15 +1,23 @@
 import type { RoutingLogEntry, AggregateStats } from './types.js';
 import type { ComplexityTier } from '../classifier/types.js';
+import type { ModelSpec } from '../router/types.js';
 
-const OPUS_INPUT_PER_MTOK = 5.00;
-const OPUS_OUTPUT_PER_MTOK = 25.00;
+/** Default baseline if none provided (legacy Opus pricing). */
+const DEFAULT_BASELINE = { inputCostPerMTok: 5.00, outputCostPerMTok: 25.00, displayName: 'claude-opus-4-5' };
 
-export function computeStats(entries: RoutingLogEntry[]): AggregateStats {
+export function computeStats(
+  entries: RoutingLogEntry[],
+  baselineModel?: ModelSpec,
+): AggregateStats {
+  const baseline = baselineModel ?? DEFAULT_BASELINE as Pick<ModelSpec, 'inputCostPerMTok' | 'outputCostPerMTok' | 'displayName'>;
+  const baselineName = baseline.displayName;
+
   if (entries.length === 0) {
     return {
       totalRequests: 0,
       totalCostUsd: 0,
-      costIfAlwaysOpus: 0,
+      costIfAlwaysPremium: 0,
+      baselineModel: baselineName,
       estimatedSavingsUsd: 0,
       savingsPercent: 0,
       modelDistribution: {},
@@ -21,7 +29,7 @@ export function computeStats(entries: RoutingLogEntry[]): AggregateStats {
   }
 
   let totalCostUsd = 0;
-  let costIfAlwaysOpus = 0;
+  let costIfAlwaysPremium = 0;
   let totalLatencyMs = 0;
 
   const modelDist: Record<string, { count: number; costUsd: number }> = {};
@@ -31,9 +39,9 @@ export function computeStats(entries: RoutingLogEntry[]): AggregateStats {
     totalCostUsd += entry.estimatedCostUsd;
     totalLatencyMs += entry.latencyMs;
 
-    costIfAlwaysOpus +=
-      (entry.inputTokens / 1_000_000) * OPUS_INPUT_PER_MTOK +
-      (entry.outputTokens / 1_000_000) * OPUS_OUTPUT_PER_MTOK;
+    costIfAlwaysPremium +=
+      (entry.inputTokens / 1_000_000) * baseline.inputCostPerMTok +
+      (entry.outputTokens / 1_000_000) * baseline.outputCostPerMTok;
 
     if (!modelDist[entry.selectedModel]) {
       modelDist[entry.selectedModel] = { count: 0, costUsd: 0 };
@@ -44,9 +52,9 @@ export function computeStats(entries: RoutingLogEntry[]): AggregateStats {
     tierDist[entry.tier]++;
   }
 
-  const estimatedSavingsUsd = costIfAlwaysOpus - totalCostUsd;
-  const savingsPercent = costIfAlwaysOpus > 0
-    ? (estimatedSavingsUsd / costIfAlwaysOpus) * 100
+  const estimatedSavingsUsd = costIfAlwaysPremium - totalCostUsd;
+  const savingsPercent = costIfAlwaysPremium > 0
+    ? (estimatedSavingsUsd / costIfAlwaysPremium) * 100
     : 0;
 
   const modelDistFull: AggregateStats['modelDistribution'] = {};
@@ -63,7 +71,8 @@ export function computeStats(entries: RoutingLogEntry[]): AggregateStats {
   return {
     totalRequests: entries.length,
     totalCostUsd,
-    costIfAlwaysOpus,
+    costIfAlwaysPremium,
+    baselineModel: baselineName,
     estimatedSavingsUsd,
     savingsPercent,
     modelDistribution: modelDistFull,
@@ -82,7 +91,7 @@ export function formatStatsTable(stats: AggregateStats, days: number): string {
   lines.push('');
   lines.push(`Total requests:       ${stats.totalRequests.toLocaleString()}`);
   lines.push(`Total cost:           $${stats.totalCostUsd.toFixed(2)}`);
-  lines.push(`Cost if always Opus:  $${stats.costIfAlwaysOpus.toFixed(2)}`);
+  lines.push(`Cost if always ${stats.baselineModel}: $${stats.costIfAlwaysPremium.toFixed(2)}`);
   lines.push(`Estimated savings:    $${stats.estimatedSavingsUsd.toFixed(2)} (${stats.savingsPercent.toFixed(1)}%)`);
   lines.push('');
   lines.push('Model Distribution:');

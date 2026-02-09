@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeStats, formatStatsTable } from '../../../src/logging/stats.js';
 import type { RoutingLogEntry } from '../../../src/logging/types.js';
+import type { ModelSpec } from '../../../src/router/types.js';
 
 function makeEntry(overrides: Partial<RoutingLogEntry> = {}): RoutingLogEntry {
   return {
@@ -21,6 +22,15 @@ function makeEntry(overrides: Partial<RoutingLogEntry> = {}): RoutingLogEntry {
   };
 }
 
+const premiumBaseline: ModelSpec = {
+  id: 'claude-opus-4-6',
+  displayName: 'Claude Opus 4.6',
+  provider: 'anthropic',
+  inputCostPerMTok: 5.00,
+  outputCostPerMTok: 25.00,
+  maxContextTokens: 200000,
+};
+
 describe('computeStats', () => {
   it('returns zeros for empty entries', () => {
     const stats = computeStats([]);
@@ -39,7 +49,7 @@ describe('computeStats', () => {
     expect(stats.totalCostUsd).toBeCloseTo(0.003, 4);
   });
 
-  it('computes savings vs always-Opus', () => {
+  it('computes savings vs default baseline (legacy Opus pricing)', () => {
     const entries = [
       makeEntry({
         selectedModel: 'gemini-2.5-flash',
@@ -49,21 +59,36 @@ describe('computeStats', () => {
       }),
     ];
     const stats = computeStats(entries);
-    // Opus would cost: (1000/1M)*5 + (1000/1M)*25 = 0.005 + 0.025 = 0.030
-    expect(stats.costIfAlwaysOpus).toBeCloseTo(0.030, 4);
+    // Default baseline: Opus pricing (5/25 per MTok)
+    // Cost: (1000/1M)*5 + (1000/1M)*25 = 0.005 + 0.025 = 0.030
+    expect(stats.costIfAlwaysPremium).toBeCloseTo(0.030, 4);
     expect(stats.estimatedSavingsUsd).toBeGreaterThan(0);
     expect(stats.savingsPercent).toBeGreaterThan(90);
+    expect(stats.baselineModel).toBe('claude-opus-4-5');
+  });
+
+  it('uses custom baseline model when provided', () => {
+    const entries = [
+      makeEntry({
+        inputTokens: 1000,
+        outputTokens: 1000,
+        estimatedCostUsd: 0.00075,
+      }),
+    ];
+    const stats = computeStats(entries, premiumBaseline);
+    expect(stats.baselineModel).toBe('Claude Opus 4.6');
+    expect(stats.costIfAlwaysPremium).toBeCloseTo(0.030, 4);
   });
 
   it('tracks model distribution', () => {
     const entries = [
       makeEntry({ selectedModel: 'gemini-2.5-flash' }),
       makeEntry({ selectedModel: 'gemini-2.5-flash' }),
-      makeEntry({ selectedModel: 'claude-sonnet-4-5-20250514' }),
+      makeEntry({ selectedModel: 'claude-sonnet-4-5' }),
     ];
     const stats = computeStats(entries);
     expect(stats.modelDistribution['gemini-2.5-flash']?.count).toBe(2);
-    expect(stats.modelDistribution['claude-sonnet-4-5-20250514']?.count).toBe(1);
+    expect(stats.modelDistribution['claude-sonnet-4-5']?.count).toBe(1);
     expect(stats.modelDistribution['gemini-2.5-flash']?.percentOfRequests).toBeCloseTo(66.67, 0);
   });
 
@@ -92,5 +117,12 @@ describe('formatStatsTable', () => {
     expect(output).toContain('Total requests:');
     expect(output).toContain('Model Distribution:');
     expect(output).toContain('Complexity Distribution:');
+  });
+
+  it('shows baseline model name in output', () => {
+    const entries = [makeEntry()];
+    const stats = computeStats(entries, premiumBaseline);
+    const output = formatStatsTable(stats, 30);
+    expect(output).toContain('Claude Opus 4.6');
   });
 });

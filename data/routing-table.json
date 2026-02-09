@@ -1,0 +1,17 @@
+{
+  "eco": {
+    "simple":   ["ollama-default", "gemini-2.0-flash-lite", "gpt-5-nano", "mistral-small", "grok-4.1-fast"],
+    "standard": ["gemini-2.5-flash", "gpt-4o-mini", "deepseek-chat", "grok-3-mini"],
+    "complex":  ["deepseek-reasoner", "kimi-k2.5", "claude-sonnet-4-5"]
+  },
+  "standard": {
+    "simple":   ["gemini-2.5-flash", "gpt-4o-mini", "deepseek-chat", "grok-3-mini"],
+    "standard": ["kimi-k2.5", "claude-sonnet-4-5", "gpt-5.1", "deepseek-reasoner"],
+    "complex":  ["claude-opus-4-5", "gpt-5.2", "grok-4", "o3"]
+  },
+  "performance": {
+    "simple":   ["claude-haiku-4-5", "gpt-5-mini", "kimi-k2.5"],
+    "standard": ["claude-sonnet-4-5", "gpt-5.1", "grok-3"],
+    "complex":  ["claude-opus-4-6", "gpt-5.2", "o3"]
+  }
+}

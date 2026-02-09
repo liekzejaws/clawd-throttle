@@ -1,7 +1,7 @@
 import http from 'node:http';
 import type { ThrottleConfig } from '../config/types.js';
 import type { DimensionWeights } from '../classifier/types.js';
-import type { ModelRegistry } from '../router/model-registry.js';
+import type { ModelRegistry, RoutingTable } from '../router/model-registry.js';
 import type { LogWriter } from '../logging/writer.js';
 import type { LogReader } from '../logging/reader.js';
 import { createLogger } from '../utils/logger.js';
@@ -24,12 +24,13 @@ export interface HttpProxyDeps {
   weights: DimensionWeights;
   logWriter: LogWriter;
   logReader: LogReader;
+  routingTable: RoutingTable;
 }
 
 export function createHttpProxy(deps: HttpProxyDeps): http.Server {
-  const { config, registry, weights, logWriter, logReader } = deps;
+  const { config, registry, weights, logWriter, logReader, routingTable } = deps;
 
-  const handlerDeps: HandlerDeps = { config, registry, weights, logWriter, logReader };
+  const handlerDeps: HandlerDeps = { config, registry, weights, logWriter, logReader, routingTable };
 
   const server = http.createServer(async (req, res) => {
     // CORS headers
@@ -56,7 +57,7 @@ export function createHttpProxy(deps: HttpProxyDeps): http.Server {
           return;
         }
         if (pathname === '/stats') {
-          handleStats(req, res, logReader);
+          handleStats(req, res, handlerDeps);
           return;
         }
         sendError(res, 404, 'not_found', `Unknown route: GET ${pathname}`);

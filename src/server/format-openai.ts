@@ -219,3 +219,27 @@ export function extractGoogleTokens(data: string): {
     return {};
   }
 }
+
+/**
+ * Extract token counts from an OpenAI-compatible SSE data payload.
+ * OpenAI streaming only includes usage in the final chunk (if stream_options.include_usage is set)
+ * or not at all. We parse any chunk that has a usage field.
+ */
+export function extractOpenAiCompatTokens(data: string): {
+  inputTokens?: number;
+  outputTokens?: number;
+} {
+  try {
+    if (data === '[DONE]') return {};
+    const parsed = JSON.parse(data);
+    if (parsed?.usage) {
+      return {
+        inputTokens: parsed.usage.prompt_tokens,
+        outputTokens: parsed.usage.completion_tokens,
+      };
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}

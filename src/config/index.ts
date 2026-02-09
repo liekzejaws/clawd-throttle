@@ -31,12 +31,33 @@ export function loadConfig(): ThrottleConfig {
 
   const config = deepMerge(defaults as unknown as Record<string, unknown>, fileConfig as Record<string, unknown>) as unknown as ThrottleConfig;
 
+  // Provider API keys
   if (process.env['ANTHROPIC_API_KEY']) {
     config.anthropic.apiKey = process.env['ANTHROPIC_API_KEY'];
   }
   if (process.env['GOOGLE_AI_API_KEY']) {
     config.google.apiKey = process.env['GOOGLE_AI_API_KEY'];
   }
+  if (process.env['OPENAI_API_KEY']) {
+    config.openai.apiKey = process.env['OPENAI_API_KEY'];
+  }
+  if (process.env['DEEPSEEK_API_KEY']) {
+    config.deepseek.apiKey = process.env['DEEPSEEK_API_KEY'];
+  }
+  if (process.env['XAI_API_KEY']) {
+    config.xai.apiKey = process.env['XAI_API_KEY'];
+  }
+  if (process.env['MOONSHOT_API_KEY']) {
+    config.moonshot.apiKey = process.env['MOONSHOT_API_KEY'];
+  }
+  if (process.env['MISTRAL_API_KEY']) {
+    config.mistral.apiKey = process.env['MISTRAL_API_KEY'];
+  }
+  if (process.env['OLLAMA_BASE_URL']) {
+    config.ollama.baseUrl = process.env['OLLAMA_BASE_URL'];
+  }
+
+  // Routing and general settings
   if (process.env['CLAWD_THROTTLE_MODE']) {
     const envMode = process.env['CLAWD_THROTTLE_MODE'];
     if (envMode === 'eco' || envMode === 'standard' || envMode === 'performance') {

@@ -149,6 +149,91 @@ function flattenContent(content: unknown): string {
   return String(content ?? '');
 }
 
+/**
+ * Transform an OpenAI-compatible SSE data payload into Anthropic-format SSE events.
+ * Used when client wants Anthropic format but upstream is an OpenAI-compat provider.
+ */
+export function transformOpenAiSseToAnthropic(
+  data: string,
+  requestId: string,
+  isFirst: boolean,
+): string | null {
+  try {
+    if (data === '[DONE]') {
+      const events: string[] = [];
+      events.push(formatSseEvent('content_block_stop', JSON.stringify({
+        type: 'content_block_stop',
+        index: 0,
+      })));
+      events.push(formatSseEvent('message_delta', JSON.stringify({
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn', stop_sequence: null },
+        usage: { output_tokens: 0 },
+      })));
+      events.push(formatSseEvent('message_stop', JSON.stringify({
+        type: 'message_stop',
+      })));
+      return events.join('');
+    }
+
+    const parsed = JSON.parse(data);
+    const events: string[] = [];
+
+    if (isFirst) {
+      // Emit message_start and content_block_start
+      events.push(formatSseEvent('message_start', JSON.stringify({
+        type: 'message_start',
+        message: {
+          id: `msg_${requestId}`,
+          type: 'message',
+          role: 'assistant',
+          content: [],
+          model: parsed.model ?? 'throttle-routed',
+          stop_reason: null,
+          stop_sequence: null,
+          usage: { input_tokens: 0, output_tokens: 0 },
+        },
+      })));
+      events.push(formatSseEvent('content_block_start', JSON.stringify({
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'text', text: '' },
+      })));
+    }
+
+    // Extract text delta
+    const text = parsed?.choices?.[0]?.delta?.content;
+    if (text) {
+      events.push(formatSseEvent('content_block_delta', JSON.stringify({
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text },
+      })));
+    }
+
+    // Check for finish_reason (emit stop events)
+    const finishReason = parsed?.choices?.[0]?.finish_reason;
+    if (finishReason) {
+      events.push(formatSseEvent('content_block_stop', JSON.stringify({
+        type: 'content_block_stop',
+        index: 0,
+      })));
+      events.push(formatSseEvent('message_delta', JSON.stringify({
+        type: 'message_delta',
+        delta: { stop_reason: mapFinishReason(finishReason), stop_sequence: null },
+        usage: { output_tokens: parsed?.usage?.completion_tokens ?? 0 },
+      })));
+      events.push(formatSseEvent('message_stop', JSON.stringify({
+        type: 'message_stop',
+      })));
+    }
+
+    return events.length > 0 ? events.join('') : null;
+  } catch {
+    return null;
+  }
+}
+
 function mapFinishReason(reason: string): string {
   switch (reason) {
     case 'end_turn':

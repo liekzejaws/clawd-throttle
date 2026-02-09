@@ -35,11 +35,11 @@ describe('detectOverrides', () => {
     });
   });
 
-  describe('force commands', () => {
-    it('detects forceModel parameter', () => {
+  describe('force commands (legacy)', () => {
+    it('detects forceModel parameter for opus', () => {
       const result = detectOverrides([{ role: 'user', content: 'hello' }], 'opus', undefined, logReader);
       expect(result.kind).toBe('force_opus');
-      expect(result.forcedModelId).toBe('claude-opus-4-5-20250514');
+      expect(result.forcedModelId).toBe('claude-opus-4-6');
     });
 
     it('detects /opus prefix', () => {
@@ -58,8 +58,63 @@ describe('detectOverrides', () => {
     });
   });
 
+  describe('force commands (new providers)', () => {
+    it('detects /deepseek slash command', () => {
+      const result = detectOverrides([{ role: 'user', content: '/deepseek explain this' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('deepseek-chat');
+    });
+
+    it('detects /grok slash command', () => {
+      const result = detectOverrides([{ role: 'user', content: '/grok what is this' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('grok-4');
+    });
+
+    it('detects /kimi slash command', () => {
+      const result = detectOverrides([{ role: 'user', content: '/kimi analyze this' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('kimi-k2.5');
+    });
+
+    it('detects /mistral slash command', () => {
+      const result = detectOverrides([{ role: 'user', content: '/mistral help me' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('mistral-large');
+    });
+
+    it('detects /local slash command for ollama', () => {
+      const result = detectOverrides([{ role: 'user', content: '/local quick task' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('ollama-default');
+    });
+
+    it('detects /gpt-5 slash command', () => {
+      const result = detectOverrides([{ role: 'user', content: '/gpt-5 complex task' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('gpt-5.2');
+    });
+
+    it('detects /o3 slash command', () => {
+      const result = detectOverrides([{ role: 'user', content: '/o3 reasoning task' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('o3');
+    });
+
+    it('detects forceModel parameter for new aliases', () => {
+      const result = detectOverrides([{ role: 'user', content: 'hello' }], 'deepseek', undefined, logReader);
+      expect(result.kind).toBe('force_model');
+      expect(result.forcedModelId).toBe('deepseek-chat');
+    });
+
+    it('ignores unknown slash commands', () => {
+      const result = detectOverrides([{ role: 'user', content: '/unknown-model hello' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('none');
+    });
+  });
+
   describe('sub-agent step-down', () => {
-    it('steps down from Opus to Sonnet', () => {
+    it('steps down from Opus 4-5 to Sonnet', () => {
       const parentId = 'test-parent-id';
       logWriter.append({
         requestId: parentId,
@@ -67,7 +122,7 @@ describe('detectOverrides', () => {
         promptHash: 'abc',
         compositeScore: 0.8,
         tier: 'complex',
-        selectedModel: 'claude-opus-4-5-20250514',
+        selectedModel: 'claude-opus-4-5',
         provider: 'anthropic',
         mode: 'standard',
         override: 'none',
@@ -84,10 +139,10 @@ describe('detectOverrides', () => {
         logReader,
       );
       expect(result.kind).toBe('sub_agent_stepdown');
-      expect(result.forcedModelId).toBe('claude-sonnet-4-5-20250514');
+      expect(result.forcedModelId).toBe('claude-sonnet-4-5');
     });
 
-    it('steps down from Sonnet to Flash', () => {
+    it('steps down from Sonnet to DeepSeek-chat', () => {
       const parentId = 'test-parent-sonnet';
       logWriter.append({
         requestId: parentId,
@@ -95,7 +150,7 @@ describe('detectOverrides', () => {
         promptHash: 'abc',
         compositeScore: 0.5,
         tier: 'standard',
-        selectedModel: 'claude-sonnet-4-5-20250514',
+        selectedModel: 'claude-sonnet-4-5',
         provider: 'anthropic',
         mode: 'standard',
         override: 'none',
@@ -112,10 +167,10 @@ describe('detectOverrides', () => {
         logReader,
       );
       expect(result.kind).toBe('sub_agent_stepdown');
-      expect(result.forcedModelId).toBe('gemini-2.5-flash');
+      expect(result.forcedModelId).toBe('deepseek-chat');
     });
 
-    it('inherits Flash (already cheapest)', () => {
+    it('steps down from Flash to Flash-Lite', () => {
       const parentId = 'test-parent-flash';
       logWriter.append({
         requestId: parentId,
@@ -139,8 +194,36 @@ describe('detectOverrides', () => {
         parentId,
         logReader,
       );
+      expect(result.kind).toBe('sub_agent_stepdown');
+      expect(result.forcedModelId).toBe('gemini-2.0-flash-lite');
+    });
+
+    it('inherits Flash-Lite (already cheapest in hierarchy)', () => {
+      const parentId = 'test-parent-flashlite';
+      logWriter.append({
+        requestId: parentId,
+        timestamp: new Date().toISOString(),
+        promptHash: 'abc',
+        compositeScore: 0.1,
+        tier: 'simple',
+        selectedModel: 'gemini-2.0-flash-lite',
+        provider: 'google',
+        mode: 'eco',
+        override: 'none',
+        inputTokens: 50,
+        outputTokens: 100,
+        estimatedCostUsd: 0.001,
+        latencyMs: 200,
+      });
+
+      const result = detectOverrides(
+        [{ role: 'user', content: 'sub task' }],
+        undefined,
+        parentId,
+        logReader,
+      );
       expect(result.kind).toBe('sub_agent_inherit');
-      expect(result.forcedModelId).toBe('gemini-2.5-flash');
+      expect(result.forcedModelId).toBe('gemini-2.0-flash-lite');
     });
   });
 

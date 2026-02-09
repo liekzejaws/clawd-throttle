@@ -22,7 +22,8 @@ export interface RoutingLogEntry {
 export interface AggregateStats {
   totalRequests: number;
   totalCostUsd: number;
-  costIfAlwaysOpus: number;
+  costIfAlwaysPremium: number;
+  baselineModel: string;
   estimatedSavingsUsd: number;
   savingsPercent: number;
   modelDistribution: Record<string, {

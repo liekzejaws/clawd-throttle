@@ -3,12 +3,12 @@ import crypto from 'node:crypto';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ThrottleConfig } from '../config/types.js';
 import type { DimensionWeights } from '../classifier/types.js';
-import type { ModelRegistry } from '../router/model-registry.js';
+import type { ModelRegistry, RoutingTable } from '../router/model-registry.js';
 import type { LogWriter } from '../logging/writer.js';
 import type { LogReader } from '../logging/reader.js';
 import { classifyPrompt } from '../classifier/engine.js';
 import { routeRequest } from '../router/engine.js';
-import { detectOverrides } from '../router/overrides.js';
+import { detectOverrides, FORCE_MODEL_MAP } from '../router/overrides.js';
 import { dispatch } from '../proxy/dispatcher.js';
 import { estimateCost } from '../logging/writer.js';
 import { computeStats } from '../logging/stats.js';
@@ -18,6 +18,9 @@ import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('tools');
 
+// Build the forceModel enum from FORCE_MODEL_MAP keys
+const forceModelKeys = Object.keys(FORCE_MODEL_MAP) as [string, ...string[]];
+
 export function registerTools(
   server: McpServer,
   config: ThrottleConfig,
@@ -25,6 +28,7 @@ export function registerTools(
   weights: DimensionWeights,
   logWriter: LogWriter,
   logReader: LogReader,
+  routingTable: RoutingTable,
 ): void {
   // Tool 1: route_request - Primary routing proxy
   server.tool(
@@ -45,8 +49,8 @@ export function registerTools(
       temperature: z.number().min(0).max(1).optional().default(0.7)
         .describe('Sampling temperature'),
 
-      forceModel: z.enum(['opus', 'sonnet', 'flash']).optional()
-        .describe('Force routing to a specific model, bypassing classification'),
+      forceModel: z.enum(forceModelKeys).optional()
+        .describe('Force routing to a specific model, bypassing classification. Accepts aliases like "opus", "gpt-5", "deepseek", "grok", "kimi", "mistral", "local", etc.'),
 
       parentRequestId: z.string().optional()
         .describe('Parent request ID for sub-agent tier inheritance'),
@@ -64,7 +68,7 @@ export function registerTools(
           systemPrompt,
         }, weights, config.classifier.thresholds);
 
-        const decision = routeRequest(classification, config.mode, override, registry);
+        const decision = routeRequest(classification, config.mode, override, registry, config, routingTable);
 
         const proxyResponse = await dispatch({
           provider: decision.model.provider,
@@ -149,6 +153,8 @@ export function registerTools(
           classification, mode,
           { kind: 'none' },
           registry,
+          config,
+          routingTable,
         );
         routingPreview[mode] = decision.model.displayName;
       }
@@ -172,7 +178,7 @@ export function registerTools(
   // Tool 3: get_routing_stats - Cost tracking
   server.tool(
     'get_routing_stats',
-    'Get routing statistics: total cost, estimated savings vs always-Opus, and model/tier distribution for a time period.',
+    'Get routing statistics: total cost, estimated savings vs most-expensive model, and model/tier distribution for a time period.',
     {
       days: z.number().int().positive().optional().default(30)
         .describe('Lookback period in days'),
@@ -181,7 +187,9 @@ export function registerTools(
       const since = new Date();
       since.setDate(since.getDate() - days);
       const entries = logReader.readSince(since.toISOString());
-      const stats = computeStats(entries);
+
+      const baseline = registry.getMostExpensive();
+      const stats = computeStats(entries, baseline);
 
       return {
         content: [{
@@ -198,15 +206,43 @@ export function registerTools(
     'View the current Clawd Throttle configuration. API keys are redacted for safety.',
     {},
     async () => {
+      const redactKey = (key: string): string =>
+        key ? '***' + key.slice(-4) : '(not set)';
+
       const safe = {
         mode: config.mode,
+        configuredProviders: registry.getConfiguredProviders(config),
         anthropic: {
-          apiKey: config.anthropic.apiKey ? '***' + config.anthropic.apiKey.slice(-4) : '(not set)',
+          apiKey: redactKey(config.anthropic.apiKey),
           baseUrl: config.anthropic.baseUrl,
         },
         google: {
-          apiKey: config.google.apiKey ? '***' + config.google.apiKey.slice(-4) : '(not set)',
+          apiKey: redactKey(config.google.apiKey),
           baseUrl: config.google.baseUrl,
+        },
+        openai: {
+          apiKey: redactKey(config.openai.apiKey),
+          baseUrl: config.openai.baseUrl,
+        },
+        deepseek: {
+          apiKey: redactKey(config.deepseek.apiKey),
+          baseUrl: config.deepseek.baseUrl,
+        },
+        xai: {
+          apiKey: redactKey(config.xai.apiKey),
+          baseUrl: config.xai.baseUrl,
+        },
+        moonshot: {
+          apiKey: redactKey(config.moonshot.apiKey),
+          baseUrl: config.moonshot.baseUrl,
+        },
+        mistral: {
+          apiKey: redactKey(config.mistral.apiKey),
+          baseUrl: config.mistral.baseUrl,
+        },
+        ollama: {
+          apiKey: '(none required)',
+          baseUrl: config.ollama.baseUrl,
         },
         logging: config.logging,
         classifier: config.classifier,

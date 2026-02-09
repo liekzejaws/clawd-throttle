@@ -1,35 +1,16 @@
 import type { ClassificationResult } from '../classifier/types.js';
 import type { RoutingMode } from '../config/types.js';
+import type { ThrottleConfig } from '../config/types.js';
 import type { RoutingDecision, OverrideResult } from './types.js';
-import type { ModelRegistry } from './model-registry.js';
-
-const FLASH = 'gemini-2.5-flash';
-const SONNET = 'claude-sonnet-4-5-20250514';
-const OPUS = 'claude-opus-4-5-20250514';
-
-const ROUTING_TABLE: Record<RoutingMode, Record<string, string>> = {
-  eco: {
-    simple: FLASH,
-    standard: FLASH,
-    complex: SONNET,
-  },
-  standard: {
-    simple: FLASH,
-    standard: SONNET,
-    complex: OPUS,
-  },
-  performance: {
-    simple: SONNET,
-    standard: OPUS,
-    complex: OPUS,
-  },
-};
+import type { ModelRegistry, RoutingTable } from './model-registry.js';
 
 export function routeRequest(
   classification: ClassificationResult,
   mode: RoutingMode,
   override: OverrideResult,
   registry: ModelRegistry,
+  config: ThrottleConfig,
+  routingTable: RoutingTable,
 ): RoutingDecision {
   // If an override is active, use the forced model
   if (override.kind !== 'none' && override.forcedModelId) {
@@ -43,19 +24,34 @@ export function routeRequest(
     };
   }
 
-  // Normal routing via the table
-  const modelId = ROUTING_TABLE[mode]![classification.tier];
-  if (!modelId) {
+  // Preference-list routing: pick first available model
+  const preferenceList = routingTable[mode]?.[classification.tier];
+  if (!preferenceList || preferenceList.length === 0) {
     throw new Error(`No routing entry for mode=${mode}, tier=${classification.tier}`);
   }
 
-  const model = registry.getById(modelId);
+  const model = registry.resolvePreference(preferenceList, config);
+  if (model) {
+    return {
+      model,
+      tier: classification.tier,
+      mode,
+      override: 'none',
+      reasoning: `Mode=${mode}, Tier=${classification.tier}, Score=${classification.score.toFixed(3)} => ${model.displayName}`,
+    };
+  }
+
+  // Fallback: try ANY available model (cheapest first)
+  const fallback = registry.getCheapestAvailable(config);
+  if (!fallback) {
+    throw new Error('No models available — configure at least one provider API key');
+  }
 
   return {
-    model,
+    model: fallback,
     tier: classification.tier,
     mode,
     override: 'none',
-    reasoning: `Mode=${mode}, Tier=${classification.tier}, Score=${classification.score.toFixed(3)} => ${model.displayName}`,
+    reasoning: `Fallback: no preferred model available for mode=${mode}, tier=${classification.tier}. Using ${fallback.displayName}`,
   };
 }

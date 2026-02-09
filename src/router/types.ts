@@ -1,7 +1,9 @@
 import type { ComplexityTier } from '../classifier/types.js';
 import type { RoutingMode } from '../config/types.js';
 
-export type ApiProvider = 'anthropic' | 'google';
+export type ApiProvider =
+  | 'anthropic' | 'google' | 'openai' | 'deepseek'
+  | 'xai' | 'moonshot' | 'mistral' | 'ollama';
 
 export interface ModelSpec {
   id: string;
@@ -18,6 +20,7 @@ export type OverrideKind =
   | 'force_opus'
   | 'force_sonnet'
   | 'force_flash'
+  | 'force_model'
   | 'sub_agent_inherit'
   | 'sub_agent_stepdown'
   | 'none';

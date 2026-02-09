@@ -4,16 +4,66 @@ import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('overrides');
 
+// Model hierarchy for sub-agent step-down (cheapest → most expensive)
 const MODEL_HIERARCHY: string[] = [
-  'gemini-2.5-flash',
-  'claude-sonnet-4-5-20250514',
-  'claude-opus-4-5-20250514',
+  'gemini-2.0-flash-lite',   // tier 0 — ultra budget
+  'gemini-2.5-flash',        // tier 1 — budget
+  'deepseek-chat',           // tier 2 — value
+  'claude-sonnet-4-5',       // tier 3 — balanced
+  'claude-opus-4-5',         // tier 4 — flagship
+  'claude-opus-4-6',         // tier 5 — premium
 ];
 
-const FORCE_MODEL_MAP: Record<string, string> = {
-  opus: 'claude-opus-4-5-20250514',
-  sonnet: 'claude-sonnet-4-5-20250514',
+// Default cheapest model for heartbeats
+const HEARTBEAT_MODEL = 'gemini-2.5-flash';
+
+// Force model aliases: short name → catalog model ID
+export const FORCE_MODEL_MAP: Record<string, string> = {
+  // Anthropic
+  opus: 'claude-opus-4-6',
+  'opus-4-6': 'claude-opus-4-6',
+  'opus-4-5': 'claude-opus-4-5',
+  sonnet: 'claude-sonnet-4-5',
+  haiku: 'claude-haiku-4-5',
+  'haiku-3-5': 'claude-haiku-3-5',
   flash: 'gemini-2.5-flash',
+  'flash-lite': 'gemini-2.0-flash-lite',
+  // OpenAI
+  'gpt-5': 'gpt-5.2',
+  'gpt-5.2': 'gpt-5.2',
+  'gpt-5.1': 'gpt-5.1',
+  'gpt-5-mini': 'gpt-5-mini',
+  'gpt-5-nano': 'gpt-5-nano',
+  'gpt-4o': 'gpt-4o',
+  'gpt-4o-mini': 'gpt-4o-mini',
+  o3: 'o3',
+  // DeepSeek
+  deepseek: 'deepseek-chat',
+  'deepseek-r1': 'deepseek-reasoner',
+  'deepseek-reasoner': 'deepseek-reasoner',
+  // xAI / Grok
+  grok: 'grok-4',
+  'grok-4': 'grok-4',
+  'grok-3': 'grok-3',
+  'grok-mini': 'grok-3-mini',
+  'grok-fast': 'grok-4.1-fast',
+  // Moonshot / Kimi
+  kimi: 'kimi-k2.5',
+  'kimi-thinking': 'kimi-k2-thinking',
+  // Mistral
+  mistral: 'mistral-large',
+  'mistral-small': 'mistral-small',
+  codestral: 'codestral',
+  // Ollama
+  local: 'ollama-default',
+  ollama: 'ollama-default',
+};
+
+// Legacy override kinds for backward compatibility
+const LEGACY_FORCE_KINDS: Record<string, OverrideResult['kind']> = {
+  opus: 'force_opus',
+  sonnet: 'force_sonnet',
+  flash: 'force_flash',
 };
 
 export function detectOverrides(
@@ -31,22 +81,28 @@ export function detectOverrides(
     log.debug('Override: heartbeat/summary detected');
     return {
       kind: 'heartbeat',
-      forcedModelId: MODEL_HIERARCHY[0],
+      forcedModelId: HEARTBEAT_MODEL,
     };
   }
 
-  // 2. Explicit force commands
+  // 2. Explicit force commands (via forceModel parameter)
   if (forceModel && FORCE_MODEL_MAP[forceModel]) {
-    const kind = `force_${forceModel}` as OverrideResult['kind'];
+    const kind = LEGACY_FORCE_KINDS[forceModel] ?? 'force_model';
     return { kind, forcedModelId: FORCE_MODEL_MAP[forceModel] };
   }
 
+  // 3. Slash-command force (e.g. /opus, /grok, /deepseek)
   const trimmed = lastUserContent.trim().toLowerCase();
-  if (trimmed.startsWith('/opus')) return { kind: 'force_opus', forcedModelId: FORCE_MODEL_MAP['opus'] };
-  if (trimmed.startsWith('/sonnet')) return { kind: 'force_sonnet', forcedModelId: FORCE_MODEL_MAP['sonnet'] };
-  if (trimmed.startsWith('/flash')) return { kind: 'force_flash', forcedModelId: FORCE_MODEL_MAP['flash'] };
+  if (trimmed.startsWith('/')) {
+    const command = trimmed.split(/\s/)[0]!.slice(1); // strip leading /
+    if (FORCE_MODEL_MAP[command]) {
+      const kind = LEGACY_FORCE_KINDS[command] ?? 'force_model';
+      log.debug(`Override: slash command /${command} => ${FORCE_MODEL_MAP[command]}`);
+      return { kind, forcedModelId: FORCE_MODEL_MAP[command] };
+    }
+  }
 
-  // 3. Sub-agent tier inheritance
+  // 4. Sub-agent tier inheritance
   if (parentRequestId) {
     const parentEntry = logReader.getEntryById(parentRequestId);
     if (parentEntry) {
@@ -65,7 +121,7 @@ export function detectOverrides(
     }
   }
 
-  // 4. No override
+  // 5. No override
   return { kind: 'none' };
 }
 
