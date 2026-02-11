@@ -3,13 +3,13 @@ import { classifyPrompt, loadWeights } from '../../../src/classifier/engine.js';
 import path from 'node:path';
 
 const weights = loadWeights(path.resolve('data/classifier-weights.json'));
-const thresholds = { simpleMax: 0.30, complexMin: 0.65 };
+const thresholds = { simpleMax: 0.18, complexMin: 0.50 };
 
 describe('classifyPrompt', () => {
   it('classifies greetings as simple', () => {
     const result = classifyPrompt('hello', {}, weights, thresholds);
     expect(result.tier).toBe('simple');
-    expect(result.score).toBeLessThanOrEqual(0.30);
+    expect(result.score).toBeLessThanOrEqual(0.18);
   });
 
   it('classifies short questions as simple', () => {
@@ -53,7 +53,7 @@ rules, and set up distributed tracing with OpenTelemetry.`;
       systemPrompt: 'You are a senior architect. You must provide structured JSON responses with detailed analysis. Never give superficial answers. Always consider security implications. Your role is to guide complex technical decisions.',
     }, weights, thresholds);
     expect(result.tier).toBe('complex');
-    expect(result.score).toBeGreaterThanOrEqual(0.65);
+    expect(result.score).toBeGreaterThanOrEqual(0.50);
   });
 
   it('runs in under 1ms', () => {

@@ -110,7 +110,7 @@ export function scoreSimpleIndicators(text: string): number {
   }
 
   const sentenceCount = trimmed.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
-  if (sentenceCount <= 1) score += 0.10;
+  if (sentenceCount <= 1 && trimmed.length < 80) score += 0.10;
 
   return Math.min(1.0, score);
 }
@@ -156,7 +156,7 @@ export function scoreQuestionCount(text: string): number {
   ]);
 
   const implicitHits = (text.match(
-    /(?:^|\.\s+)(how|why|what|when|where|which|who|whom|whose|can|could|would|should|is|are|do|does|did|will|shall)\s/gim
+    /(?:^|\.\s+)(how|why|what|when|where|which|who|whom|whose)\s/gim
   ) || []).length;
   score += Math.min(0.30, implicitHits * 0.08);
 

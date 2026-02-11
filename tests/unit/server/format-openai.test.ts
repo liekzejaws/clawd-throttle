@@ -132,7 +132,7 @@ describe('transformAnthropicSseToOpenAi', () => {
     const result = transformAnthropicSseToOpenAi('content_block_delta', data, 'req-1', 'model-1');
     expect(result).toContain('"content":"Hello"');
     expect(result).toContain('chatcmpl-req-1');
-    expect(result).toStartWith('data: ');
+    expect(result).toMatch(/^data: /);
   });
 
   it('transforms message_delta with stop_reason', () => {

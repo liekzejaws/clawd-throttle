@@ -19,14 +19,14 @@ import {
 } from './dimensions.js';
 
 const DEFAULT_WEIGHTS: DimensionWeights = {
-  tokenCount: 0.20,
-  codePresence: 0.15,
-  reasoningMarkers: 0.18,
+  tokenCount: 0.12,
+  codePresence: 0.22,
+  reasoningMarkers: 0.25,
   simpleIndicators: -0.15,
-  multiStepPatterns: 0.15,
+  multiStepPatterns: 0.20,
   questionCount: 0.07,
   systemPromptSignals: 0.10,
-  conversationDepth: 0.10,
+  conversationDepth: 0.12,
 };
 
 export function loadWeights(weightsPath: string): DimensionWeights {

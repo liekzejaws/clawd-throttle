@@ -22,7 +22,7 @@ const config = {
   mistral: { apiKey: '', baseUrl: 'https://api.mistral.ai/v1' },
   ollama: { apiKey: '', baseUrl: 'http://localhost:11434/v1' },
   logging: { level: 'info', logFilePath: '' },
-  classifier: { weightsPath: '', thresholds: { simpleMax: 0.30, complexMin: 0.65 } },
+  classifier: { weightsPath: '', thresholds: { simpleMax: 0.18, complexMin: 0.50 } },
   modelCatalogPath: '',
   routingTablePath: '',
   http: { port: 8484, enabled: false },

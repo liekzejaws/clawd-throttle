@@ -51,8 +51,8 @@ export const defaults: ThrottleConfig = {
   classifier: {
     weightsPath: path.join(projectRoot, 'data', 'classifier-weights.json'),
     thresholds: {
-      simpleMax: 0.30,
-      complexMin: 0.65,
+      simpleMax: 0.18,
+      complexMin: 0.50,
     },
   },
   modelCatalogPath: path.join(projectRoot, 'data', 'model-catalog.json'),

@@ -18,7 +18,7 @@ function makeConfig(overrides: { apiKey?: string; baseUrl?: string; authType?: '
     mistral: { apiKey: '', baseUrl: '' },
     ollama: { apiKey: '', baseUrl: '' },
     logging: { level: 'info', logFilePath: '' },
-    classifier: { weightsPath: '', thresholds: { simpleMax: 0.3, complexMin: 0.65 } },
+    classifier: { weightsPath: '', thresholds: { simpleMax: 0.18, complexMin: 0.50 } },
     modelCatalogPath: '',
     routingTablePath: '',
     http: { port: 8484, enabled: false },
