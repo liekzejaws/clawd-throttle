@@ -35,3 +35,19 @@ export interface ProviderConfig {
   apiKey: string;
   baseUrl: string;
 }
+
+/**
+ * Error thrown by proxy modules when an upstream API returns an error.
+ * Carries the HTTP status code so callers can react (e.g., 429 rate limiting).
+ */
+export class ProxyError extends Error {
+  readonly status: number;
+  readonly provider: string;
+
+  constructor(provider: string, status: number, body: string) {
+    super(`${provider} API error (${status}): ${body}`);
+    this.name = 'ProxyError';
+    this.status = status;
+    this.provider = provider;
+  }
+}

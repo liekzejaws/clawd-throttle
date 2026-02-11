@@ -1,10 +1,13 @@
 {
-  "tokenCount": 0.12,
-  "codePresence": 0.22,
-  "reasoningMarkers": 0.25,
+  "tokenCount": 0.10,
+  "codePresence": 0.20,
+  "reasoningMarkers": 0.22,
   "simpleIndicators": -0.15,
-  "multiStepPatterns": 0.20,
-  "questionCount": 0.07,
-  "systemPromptSignals": 0.10,
-  "conversationDepth": 0.12
+  "multiStepPatterns": 0.18,
+  "questionCount": 0.06,
+  "systemPromptSignals": 0.09,
+  "conversationDepth": 0.10,
+  "agenticTask": 0.04,
+  "technicalTerms": 0.05,
+  "constraintCount": 0.03
 }

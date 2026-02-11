@@ -72,6 +72,7 @@ export function detectOverrides(
   forceModel: string | undefined,
   parentRequestId: string | undefined,
   logReader: LogReader,
+  hasTools = false,
 ): OverrideResult {
   const lastUserContent = messages
     .filter(m => m.role === 'user')
@@ -103,7 +104,13 @@ export function detectOverrides(
     }
   }
 
-  // 4. Sub-agent tier inheritance
+  // 4. Tool-calling tier floor (no specific model, just signals min tier)
+  if (hasTools) {
+    log.debug('Override: tool_calling detected — tier floor = standard');
+    return { kind: 'tool_calling' };
+  }
+
+  // 5. Sub-agent tier inheritance
   if (parentRequestId) {
     const parentEntry = logReader.getEntryById(parentRequestId);
     if (parentEntry) {
@@ -122,7 +129,7 @@ export function detectOverrides(
     }
   }
 
-  // 5. No override
+  // 6. No override
   return { kind: 'none' };
 }
 

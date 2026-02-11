@@ -208,3 +208,72 @@ export function scoreConversationDepth(messageCount?: number): number {
     { value: 100, score: 1.00 },
   ]);
 }
+
+/**
+ * Detects agentic multi-step autonomous task patterns.
+ * Keywords: research, compare options, scrape, monitor, iterate until, etc.
+ */
+export function scoreAgenticTask(text: string): number {
+  let score = 0;
+
+  const researchHits = (text.match(
+    /\b(research\s+(and|the|this|about|into|on)|compare\s+(options|approaches|alternatives|solutions|methods))\b/gi
+  ) || []).length;
+  score += Math.min(0.40, researchHits * 0.15);
+
+  const autonomyHits = (text.match(
+    /\b(find out|scrape|monitor|collect data|gather information|look up|search for|crawl|fetch data)\b/gi
+  ) || []).length;
+  score += Math.min(0.40, autonomyHits * 0.12);
+
+  const iterationHits = (text.match(
+    /\b(iterate until|keep trying|fix and retry|until it works|try again|repeat until|loop until|retry if)\b/gi
+  ) || []).length;
+  score += Math.min(0.50, iterationHits * 0.20);
+
+  const multiChainHits = (text.match(
+    /\b(after that\b.*\band also|step\s+\d+\b.*\bstep\s+\d+)\b/gi
+  ) || []).length;
+  score += Math.min(0.30, multiChainHits * 0.15);
+
+  return Math.min(1.0, score);
+}
+
+/**
+ * Detects technical terminology density.
+ * Targets domain-specific terms that indicate technical complexity.
+ */
+export function scoreTechnicalTerms(text: string): number {
+  const hits = (text.match(
+    /\b(algorithm|kubernetes|k8s|docker|container|API|database|microservices?|OAuth|JWT|GraphQL|REST|gRPC|WebSocket|CI\/CD|terraform|nginx|redis|postgres|mongoDB|kafka|RabbitMQ|elasticsearch|lambda|serverless|CDN|DNS|TLS|SSL|SSH|HTTP|TCP|UDP|CORS|CSRF|XSS|SQL|NoSQL|ORM|SDK|CLI|regex|mutex|semaphore|deadlock|thread|process|kernel|syscall|cache|index|shard|replica|partition|load[- ]balanc|auto[- ]scal|circuit[- ]break)\b/gi
+  ) || []).length;
+
+  return interpolateBreakpoints(hits, [
+    { value: 0, score: 0.00 },
+    { value: 1, score: 0.15 },
+    { value: 2, score: 0.30 },
+    { value: 4, score: 0.55 },
+    { value: 6, score: 0.75 },
+    { value: 10, score: 0.90 },
+    { value: 15, score: 1.00 },
+  ]);
+}
+
+/**
+ * Detects constraint and precision language.
+ * Targets quantitative requirements, bounds, and limits.
+ */
+export function scoreConstraintCount(text: string): number {
+  const hits = (text.match(
+    /\b(at most|at least|exactly|no more than|no fewer than|O\([^)]+\)|within\s+\d+|maximum|minimum|limit to|budget of|constraint|bounded by|not exceed|upper bound|lower bound|threshold|cap at|floor of|ceiling of)\b/gi
+  ) || []).length;
+
+  return interpolateBreakpoints(hits, [
+    { value: 0, score: 0.00 },
+    { value: 1, score: 0.20 },
+    { value: 2, score: 0.40 },
+    { value: 3, score: 0.60 },
+    { value: 5, score: 0.80 },
+    { value: 7, score: 1.00 },
+  ]);
+}

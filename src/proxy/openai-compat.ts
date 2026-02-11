@@ -1,4 +1,5 @@
 import type { ProxyRequest, ProxyResponse, ProviderConfig } from './types.js';
+import { ProxyError } from './types.js';
 import { performance } from 'node:perf_hooks';
 
 /**
@@ -48,7 +49,7 @@ export async function callOpenAiCompat(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenAI-compat API error (${response.status}): ${errorText}`);
+    throw new ProxyError('OpenAI-compat', response.status, errorText);
   }
 
   const data = await response.json() as {

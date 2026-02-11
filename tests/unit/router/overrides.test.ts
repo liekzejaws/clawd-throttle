@@ -255,6 +255,34 @@ describe('detectOverrides', () => {
     });
   });
 
+  describe('tool calling detection', () => {
+    it('detects hasTools and returns tool_calling override', () => {
+      const result = detectOverrides([{ role: 'user', content: 'hello' }], undefined, undefined, logReader, true);
+      expect(result.kind).toBe('tool_calling');
+      expect(result.forcedModelId).toBeUndefined();
+    });
+
+    it('does not trigger when hasTools is false', () => {
+      const result = detectOverrides([{ role: 'user', content: 'hello' }], undefined, undefined, logReader, false);
+      expect(result.kind).toBe('none');
+    });
+
+    it('heartbeat takes priority over tool_calling', () => {
+      const result = detectOverrides([{ role: 'user', content: 'ping' }], undefined, undefined, logReader, true);
+      expect(result.kind).toBe('heartbeat');
+    });
+
+    it('force model takes priority over tool_calling', () => {
+      const result = detectOverrides([{ role: 'user', content: 'hello' }], 'opus', undefined, logReader, true);
+      expect(result.kind).toBe('force_opus');
+    });
+
+    it('slash command takes priority over tool_calling', () => {
+      const result = detectOverrides([{ role: 'user', content: '/sonnet build this' }], undefined, undefined, logReader, true);
+      expect(result.kind).toBe('force_sonnet');
+    });
+  });
+
   describe('priority order', () => {
     it('heartbeat takes priority over force commands', () => {
       const result = detectOverrides([{ role: 'user', content: 'ping' }], 'opus', undefined, logReader);

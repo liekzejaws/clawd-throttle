@@ -7,6 +7,7 @@ export interface RoutingLogEntry {
   timestamp: string;
   promptHash: string;
   compositeScore: number;
+  confidence?: number;
   tier: ComplexityTier;
   selectedModel: string;
   provider: ApiProvider;

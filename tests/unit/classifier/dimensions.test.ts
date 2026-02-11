@@ -8,6 +8,9 @@ import {
   scoreQuestionCount,
   scoreSystemPromptSignals,
   scoreConversationDepth,
+  scoreAgenticTask,
+  scoreTechnicalTerms,
+  scoreConstraintCount,
 } from '../../../src/classifier/dimensions.js';
 
 describe('scoreTokenCount', () => {
@@ -151,5 +154,82 @@ describe('scoreConversationDepth', () => {
 
   it('scores deep conversation high', () => {
     expect(scoreConversationDepth(50)).toBeGreaterThan(0.8);
+  });
+});
+
+describe('scoreAgenticTask', () => {
+  it('scores zero for simple text', () => {
+    expect(scoreAgenticTask('hello')).toBe(0);
+  });
+
+  it('detects research patterns', () => {
+    const text = 'Research the best approaches for distributed caching';
+    expect(scoreAgenticTask(text)).toBeGreaterThan(0.1);
+  });
+
+  it('detects compare patterns', () => {
+    const text = 'Compare options for deploying the app';
+    expect(scoreAgenticTask(text)).toBeGreaterThan(0.1);
+  });
+
+  it('detects data collection patterns', () => {
+    const text = 'Scrape the data and collect data from each source';
+    expect(scoreAgenticTask(text)).toBeGreaterThan(0.2);
+  });
+
+  it('detects iteration patterns', () => {
+    const text = 'Keep trying until it works, fix and retry if it fails';
+    expect(scoreAgenticTask(text)).toBeGreaterThan(0.3);
+  });
+
+  it('scores zero for simple coding text', () => {
+    expect(scoreAgenticTask('Write a function that adds two numbers')).toBe(0);
+  });
+});
+
+describe('scoreTechnicalTerms', () => {
+  it('scores zero for non-technical text', () => {
+    expect(scoreTechnicalTerms('How are you doing today?')).toBe(0);
+  });
+
+  it('detects single technical term', () => {
+    const text = 'Set up the API endpoint';
+    expect(scoreTechnicalTerms(text)).toBeGreaterThan(0.1);
+  });
+
+  it('detects multiple technical terms', () => {
+    const text = 'Deploy a Kubernetes cluster with Docker containers behind nginx load balancer';
+    expect(scoreTechnicalTerms(text)).toBeGreaterThan(0.4);
+  });
+
+  it('detects security terms', () => {
+    const text = 'Implement OAuth with JWT tokens and handle CORS and CSRF protection';
+    expect(scoreTechnicalTerms(text)).toBeGreaterThan(0.4);
+  });
+
+  it('detects database and messaging terms', () => {
+    const text = 'Set up PostgreSQL database with Redis cache and Kafka message queue';
+    expect(scoreTechnicalTerms(text)).toBeGreaterThan(0.3);
+  });
+});
+
+describe('scoreConstraintCount', () => {
+  it('scores zero for unconstrained text', () => {
+    expect(scoreConstraintCount('Write a hello world program')).toBe(0);
+  });
+
+  it('detects single constraint', () => {
+    const text = 'Sort the array with at most O(n log n) complexity';
+    expect(scoreConstraintCount(text)).toBeGreaterThan(0.15);
+  });
+
+  it('detects multiple constraints', () => {
+    const text = 'The budget of 100 requests, with at most 10 concurrent and a minimum latency threshold';
+    expect(scoreConstraintCount(text)).toBeGreaterThan(0.4);
+  });
+
+  it('detects bound language', () => {
+    const text = 'Limit to 5 retries with a maximum timeout of 30 seconds';
+    expect(scoreConstraintCount(text)).toBeGreaterThan(0.3);
   });
 });

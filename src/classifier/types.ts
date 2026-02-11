@@ -9,6 +9,9 @@ export interface DimensionScores {
   questionCount: number;
   systemPromptSignals: number;
   conversationDepth: number;
+  agenticTask: number;
+  technicalTerms: number;
+  constraintCount: number;
 }
 
 export interface DimensionWeights {
@@ -20,6 +23,9 @@ export interface DimensionWeights {
   questionCount: number;
   systemPromptSignals: number;
   conversationDepth: number;
+  agenticTask: number;
+  technicalTerms: number;
+  constraintCount: number;
 }
 
 export interface ClassificationMeta {
@@ -30,6 +36,7 @@ export interface ClassificationMeta {
 export interface ClassificationResult {
   tier: ComplexityTier;
   score: number;
+  confidence: number;
   dimensions: DimensionScores;
   classifiedInMs: number;
 }

@@ -1,4 +1,5 @@
 import type { ProxyRequest, StreamingProxyResult } from './types.js';
+import { ProxyError } from './types.js';
 import type { ThrottleConfig } from '../config/types.js';
 import { performance } from 'node:perf_hooks';
 
@@ -40,7 +41,7 @@ export async function callGoogleStream(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Google AI API error (${response.status}): ${errorText}`);
+    throw new ProxyError('Google AI', response.status, errorText);
   }
 
   return {

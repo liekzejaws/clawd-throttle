@@ -4,6 +4,7 @@ import type { ThrottleConfig, RoutingMode } from '../config/types.js';
 import type { ComplexityTier } from '../classifier/types.js';
 import type { ProviderConfig } from '../proxy/types.js';
 import { createLogger } from '../utils/logger.js';
+import { rateLimiter } from './rate-limiter.js';
 
 const log = createLogger('model-registry');
 
@@ -71,26 +72,47 @@ export class ModelRegistry {
 
   /**
    * Return the first available model from a preference list.
-   * A model is "available" if its provider has a configured API key.
+   * A model is "available" if its provider has a configured API key
+   * and the model is not currently rate-limited (429 cooldown).
    */
   resolvePreference(preferenceList: string[], config: ThrottleConfig): ModelSpec | null {
-    for (const modelId of preferenceList) {
+    // Filter out rate-limited models first
+    const available = rateLimiter.filterAvailable(preferenceList);
+
+    for (const modelId of available) {
       const model = this.models.get(modelId);
       if (model && this.isProviderConfigured(model.provider, config)) {
         return model;
       }
     }
+
+    // If all preferred models are rate-limited, fall through to any configured model
+    // from the original list (better to retry a rate-limited model than fail entirely)
+    if (available.length < preferenceList.length) {
+      log.warn(`All preferred models rate-limited, trying original list as fallback`);
+      for (const modelId of preferenceList) {
+        const model = this.models.get(modelId);
+        if (model && this.isProviderConfigured(model.provider, config)) {
+          return model;
+        }
+      }
+    }
+
     return null;
   }
 
   /**
    * Get the cheapest available model across all configured providers.
+   * Prefers non-rate-limited models, but falls back to rate-limited if needed.
    */
   getCheapestAvailable(config: ThrottleConfig): ModelSpec | null {
-    const available = this.getAll()
+    const configured = this.getAll()
       .filter(m => this.isProviderConfigured(m.provider, config))
       .sort((a, b) => a.inputCostPerMTok - b.inputCostPerMTok);
-    return available[0] ?? null;
+
+    // Prefer non-rate-limited models
+    const notLimited = configured.filter(m => !rateLimiter.isRateLimited(m.id));
+    return notLimited[0] ?? configured[0] ?? null;
   }
 
   /**

@@ -5,6 +5,8 @@ import type { ModelRegistry, RoutingTable } from '../router/model-registry.js';
 import type { LogWriter } from '../logging/writer.js';
 import type { LogReader } from '../logging/reader.js';
 import { createLogger } from '../utils/logger.js';
+import { DedupCache } from '../proxy/dedup-cache.js';
+import { SessionStore } from '../router/session-store.js';
 import {
   handleHealth,
   handleStats,
@@ -30,14 +32,19 @@ export interface HttpProxyDeps {
 export function createHttpProxy(deps: HttpProxyDeps): http.Server {
   const { config, registry, weights, logWriter, logReader, routingTable } = deps;
 
-  const handlerDeps: HandlerDeps = { config, registry, weights, logWriter, logReader, routingTable };
+  // Instantiate v2.1 modules
+  const dedupCache = new DedupCache();
+  const sessionStore = new SessionStore();
+  sessionStore.startCleanup();
+
+  const handlerDeps: HandlerDeps = { config, registry, weights, logWriter, logReader, routingTable, dedupCache, sessionStore };
 
   const server = http.createServer(async (req, res) => {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, X-Throttle-Force-Model');
-    res.setHeader('Access-Control-Expose-Headers', 'X-Throttle-Model, X-Throttle-Tier, X-Throttle-Score, X-Throttle-Request-Id');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, X-Throttle-Force-Model, X-Session-ID');
+    res.setHeader('Access-Control-Expose-Headers', 'X-Throttle-Model, X-Throttle-Tier, X-Throttle-Score, X-Throttle-Confidence, X-Throttle-Request-Id');
 
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {

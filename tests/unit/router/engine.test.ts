@@ -28,14 +28,16 @@ const config = {
   http: { port: 8484, enabled: false },
 } as ThrottleConfig;
 
-function makeClassification(tier: 'simple' | 'standard' | 'complex', score: number): ClassificationResult {
+function makeClassification(tier: 'simple' | 'standard' | 'complex', score: number, confidence = 0.95): ClassificationResult {
   return {
     tier,
     score,
+    confidence,
     dimensions: {
       tokenCount: 0, codePresence: 0, reasoningMarkers: 0,
       simpleIndicators: 0, multiStepPatterns: 0, questionCount: 0,
       systemPromptSignals: 0, conversationDepth: 0,
+      agenticTask: 0, technicalTerms: 0, constraintCount: 0,
     },
     classifiedInMs: 0.1,
   };
@@ -114,6 +116,35 @@ describe('routeRequest', () => {
       const result = routeRequest(makeClassification('standard', 0.4), 'eco', noOverride, registry, config, routingTable);
       expect(result.override).toBe('none');
       expect(result.model.id).toBe('gemini-2.5-flash');
+    });
+  });
+
+  describe('tool_calling tier floor', () => {
+    const toolOverride: OverrideResult = { kind: 'tool_calling' };
+
+    it('bumps simple to standard in eco mode', () => {
+      const result = routeRequest(makeClassification('simple', 0.1), 'eco', toolOverride, registry, config, routingTable);
+      // Simple → standard floor → eco standard preference list
+      expect(result.tier).toBe('standard');
+      expect(result.override).toBe('tool_calling');
+    });
+
+    it('keeps standard as-is in standard mode', () => {
+      const result = routeRequest(makeClassification('standard', 0.4), 'standard', toolOverride, registry, config, routingTable);
+      expect(result.tier).toBe('standard');
+      expect(result.override).toBe('tool_calling');
+    });
+
+    it('keeps complex as-is (already above floor)', () => {
+      const result = routeRequest(makeClassification('complex', 0.8), 'gigachad', toolOverride, registry, config, routingTable);
+      expect(result.tier).toBe('complex');
+      expect(result.model.id).toBe('claude-opus-4-6');
+    });
+
+    it('tool_calling + low confidence can step up further', () => {
+      // simple → standard (tool floor) → complex (confidence step-up)
+      const result = routeRequest(makeClassification('simple', 0.1, 0.40), 'standard', toolOverride, registry, config, routingTable);
+      expect(result.tier).toBe('complex');
     });
   });
 });

@@ -1,4 +1,5 @@
 import type { ProxyRequest, ProxyResponse } from './types.js';
+import { ProxyError } from './types.js';
 import type { ThrottleConfig } from '../config/types.js';
 import { performance } from 'node:perf_hooks';
 import { buildAnthropicAuthHeaders } from './anthropic-auth.js';
@@ -38,7 +39,7 @@ export async function callAnthropic(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Anthropic API error (${response.status}): ${errorText}`);
+    throw new ProxyError('Anthropic', response.status, errorText);
   }
 
   const data = await response.json() as {

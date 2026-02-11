@@ -15,6 +15,8 @@ import { estimateCost } from '../logging/writer.js';
 import { computeStats } from '../logging/stats.js';
 import { hashPrompt } from '../utils/hash.js';
 import { createLogger } from '../utils/logger.js';
+import { DedupCache } from '../proxy/dedup-cache.js';
+import { SessionStore } from '../router/session-store.js';
 import { parseAnthropicRequest, formatAnthropicResponse, transformGoogleSseToAnthropic, transformOpenAiSseToAnthropic } from './format-anthropic.js';
 import { parseOpenAiRequest, formatOpenAiResponse, transformAnthropicSseToOpenAi, transformGoogleSseToOpenAi, extractAnthropicTokens, extractGoogleTokens, extractOpenAiCompatTokens } from './format-openai.js';
 
@@ -27,6 +29,8 @@ export interface HandlerDeps {
   logWriter: LogWriter;
   logReader: LogReader;
   routingTable: RoutingTable;
+  dedupCache: DedupCache;
+  sessionStore: SessionStore;
 }
 
 // ─── GET /health ───────────────────────────────────────────────────────
@@ -72,19 +76,95 @@ export async function handleMessages(
   res: http.ServerResponse,
   deps: HandlerDeps,
 ): Promise<void> {
-  const { config, registry, weights, logWriter, logReader, routingTable } = deps;
+  const { config, registry, weights, logWriter, logReader, routingTable, dedupCache, sessionStore } = deps;
 
   const parsed = parseAnthropicRequest(body);
   const forceModel = getForceModel(req);
   const requestId = crypto.randomUUID();
+  const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
+  const sessionId = getSessionId(req);
 
-  // Classify and route
-  const { decision, classification } = classifyAndRoute(
-    parsed.messages, parsed.systemPrompt, forceModel, config, registry, weights, logReader, routingTable,
+  // Dedup check (non-streaming only)
+  if (!parsed.stream) {
+    const dedupKey = dedupCache.computeKey(parsed.messages, parsed.systemPrompt);
+
+    // 1. Check completed cache
+    const cached = dedupCache.getCompleted(dedupKey);
+    if (cached) {
+      log.info(`Dedup hit for request ${requestId}, returning cached response`);
+      res.writeHead(cached.status, JSON.parse(cached.headers['_raw'] ?? '{}'));
+      res.end(cached.body);
+      return;
+    }
+
+    // 2. Check if another request with same key is in-flight
+    const inflight = dedupCache.markInflight(dedupKey);
+    if (inflight.isWaiting) {
+      log.info(`Dedup waiting for in-flight request ${requestId}`);
+      try {
+        const result = await inflight.promise;
+        res.writeHead(result.status, JSON.parse(result.headers['_raw'] ?? '{}'));
+        res.end(result.body);
+        return;
+      } catch {
+        // In-flight request failed; fall through to handle normally
+        log.warn(`Dedup in-flight request failed, proceeding normally for ${requestId}`);
+      }
+    }
+
+    // 3. This request owns the dedup slot — proceed and cache result
+    try {
+      const { decision, classification } = classifyAndRouteWithSession(
+        parsed.messages, parsed.systemPrompt, forceModel, config, registry, weights,
+        logReader, routingTable, hasTools, sessionId, sessionStore,
+      );
+
+      setThrottleHeaders(res, decision.model.id, classification.tier, classification.score, classification.confidence, requestId);
+
+      const proxyRequest = {
+        provider: decision.model.provider,
+        modelId: decision.model.id,
+        messages: parsed.messages,
+        systemPrompt: parsed.systemPrompt,
+        maxTokens: parsed.maxTokens,
+        temperature: parsed.temperature,
+      };
+
+      const proxyResponse = await dispatch(proxyRequest, config);
+      const cost = estimateCost(decision.model, proxyResponse.inputTokens, proxyResponse.outputTokens);
+
+      writeLogEntry(logWriter, requestId, classification, decision, proxyResponse.inputTokens,
+        proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages);
+
+      const responseBody = JSON.stringify(formatAnthropicResponse(proxyResponse, requestId), null, 2);
+
+      // Cache the response for dedup
+      dedupCache.complete(dedupKey, {
+        status: 200,
+        headers: { '_raw': JSON.stringify({ 'Content-Type': 'application/json' }) },
+        body: responseBody,
+        completedAt: Date.now(),
+      });
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(responseBody),
+      });
+      res.end(responseBody);
+    } catch (err) {
+      dedupCache.removeInflight(dedupKey, err instanceof Error ? err : new Error(String(err)));
+      throw err;
+    }
+    return;
+  }
+
+  // Streaming path (no dedup — can't easily cache streams)
+  const { decision, classification } = classifyAndRouteWithSession(
+    parsed.messages, parsed.systemPrompt, forceModel, config, registry, weights,
+    logReader, routingTable, hasTools, sessionId, sessionStore,
   );
 
-  // Set routing headers
-  setThrottleHeaders(res, decision.model.id, classification.tier, classification.score, requestId);
+  setThrottleHeaders(res, decision.model.id, classification.tier, classification.score, classification.confidence, requestId);
 
   const proxyRequest = {
     provider: decision.model.provider,
@@ -95,20 +175,10 @@ export async function handleMessages(
     temperature: parsed.temperature,
   };
 
-  if (parsed.stream) {
-    await handleStreamingResponse(
-      proxyRequest, decision, classification, config, requestId,
-      'anthropic', res, logWriter, parsed.messages,
-    );
-  } else {
-    const proxyResponse = await dispatch(proxyRequest, config);
-    const cost = estimateCost(decision.model, proxyResponse.inputTokens, proxyResponse.outputTokens);
-
-    writeLogEntry(logWriter, requestId, classification, decision, proxyResponse.inputTokens,
-      proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages);
-
-    sendJson(res, 200, formatAnthropicResponse(proxyResponse, requestId));
-  }
+  await handleStreamingResponse(
+    proxyRequest, decision, classification, config, requestId,
+    'anthropic', res, logWriter, parsed.messages,
+  );
 }
 
 // ─── POST /v1/chat/completions (OpenAI format) ─────────────────────────
@@ -119,17 +189,90 @@ export async function handleChatCompletions(
   res: http.ServerResponse,
   deps: HandlerDeps,
 ): Promise<void> {
-  const { config, registry, weights, logWriter, logReader, routingTable } = deps;
+  const { config, registry, weights, logWriter, logReader, routingTable, dedupCache, sessionStore } = deps;
 
   const parsed = parseOpenAiRequest(body);
   const forceModel = getForceModel(req);
   const requestId = crypto.randomUUID();
+  const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
+  const sessionId = getSessionId(req);
 
-  const { decision, classification } = classifyAndRoute(
-    parsed.messages, parsed.systemPrompt, forceModel, config, registry, weights, logReader, routingTable,
+  // Dedup check (non-streaming only)
+  if (!parsed.stream) {
+    const dedupKey = dedupCache.computeKey(parsed.messages, parsed.systemPrompt);
+
+    const cached = dedupCache.getCompleted(dedupKey);
+    if (cached) {
+      log.info(`Dedup hit for request ${requestId}, returning cached response`);
+      res.writeHead(cached.status, JSON.parse(cached.headers['_raw'] ?? '{}'));
+      res.end(cached.body);
+      return;
+    }
+
+    const inflight = dedupCache.markInflight(dedupKey);
+    if (inflight.isWaiting) {
+      log.info(`Dedup waiting for in-flight request ${requestId}`);
+      try {
+        const result = await inflight.promise;
+        res.writeHead(result.status, JSON.parse(result.headers['_raw'] ?? '{}'));
+        res.end(result.body);
+        return;
+      } catch {
+        log.warn(`Dedup in-flight request failed, proceeding normally for ${requestId}`);
+      }
+    }
+
+    try {
+      const { decision, classification } = classifyAndRouteWithSession(
+        parsed.messages, parsed.systemPrompt, forceModel, config, registry, weights,
+        logReader, routingTable, hasTools, sessionId, sessionStore,
+      );
+
+      setThrottleHeaders(res, decision.model.id, classification.tier, classification.score, classification.confidence, requestId);
+
+      const proxyRequest = {
+        provider: decision.model.provider,
+        modelId: decision.model.id,
+        messages: parsed.messages,
+        systemPrompt: parsed.systemPrompt,
+        maxTokens: parsed.maxTokens,
+        temperature: parsed.temperature,
+      };
+
+      const proxyResponse = await dispatch(proxyRequest, config);
+      const cost = estimateCost(decision.model, proxyResponse.inputTokens, proxyResponse.outputTokens);
+
+      writeLogEntry(logWriter, requestId, classification, decision, proxyResponse.inputTokens,
+        proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages);
+
+      const responseBody = JSON.stringify(formatOpenAiResponse(proxyResponse, requestId), null, 2);
+
+      dedupCache.complete(dedupKey, {
+        status: 200,
+        headers: { '_raw': JSON.stringify({ 'Content-Type': 'application/json' }) },
+        body: responseBody,
+        completedAt: Date.now(),
+      });
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(responseBody),
+      });
+      res.end(responseBody);
+    } catch (err) {
+      dedupCache.removeInflight(dedupKey, err instanceof Error ? err : new Error(String(err)));
+      throw err;
+    }
+    return;
+  }
+
+  // Streaming path (no dedup)
+  const { decision, classification } = classifyAndRouteWithSession(
+    parsed.messages, parsed.systemPrompt, forceModel, config, registry, weights,
+    logReader, routingTable, hasTools, sessionId, sessionStore,
   );
 
-  setThrottleHeaders(res, decision.model.id, classification.tier, classification.score, requestId);
+  setThrottleHeaders(res, decision.model.id, classification.tier, classification.score, classification.confidence, requestId);
 
   const proxyRequest = {
     provider: decision.model.provider,
@@ -140,20 +283,10 @@ export async function handleChatCompletions(
     temperature: parsed.temperature,
   };
 
-  if (parsed.stream) {
-    await handleStreamingResponse(
-      proxyRequest, decision, classification, config, requestId,
-      'openai', res, logWriter, parsed.messages,
-    );
-  } else {
-    const proxyResponse = await dispatch(proxyRequest, config);
-    const cost = estimateCost(decision.model, proxyResponse.inputTokens, proxyResponse.outputTokens);
-
-    writeLogEntry(logWriter, requestId, classification, decision, proxyResponse.inputTokens,
-      proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages);
-
-    sendJson(res, 200, formatOpenAiResponse(proxyResponse, requestId));
-  }
+  await handleStreamingResponse(
+    proxyRequest, decision, classification, config, requestId,
+    'openai', res, logWriter, parsed.messages,
+  );
 }
 
 // ─── Streaming ─────────────────────────────────────────────────────────
@@ -173,7 +306,7 @@ async function handleStreamingResponse(
 
   // Set SSE headers
   res.writeHead(200, {
-    ...getThrottleHeadersObj(decision.model.id, classification.tier, classification.score, requestId),
+    ...getThrottleHeadersObj(decision.model.id, classification.tier, classification.score, classification.confidence, requestId),
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
@@ -192,10 +325,25 @@ async function handleStreamingResponse(
   let buffer = '';
   let isFirstNonAnthropicChunk = true;
 
+  // SSE heartbeat: prevents client/proxy timeouts for slow-starting models
+  // (e.g., DeepSeek-R, o3). SSE comment lines are ignored by clients.
+  const heartbeatInterval = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(': heartbeat\n\n');
+    }
+  }, 2000);
+  let heartbeatCleared = false;
+
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+
+      // Cancel heartbeat once first data arrives
+      if (!heartbeatCleared) {
+        clearInterval(heartbeatInterval);
+        heartbeatCleared = true;
+      }
 
       buffer += decoder.decode(value, { stream: true });
 
@@ -228,6 +376,11 @@ async function handleStreamingResponse(
   } catch (err) {
     log.error('Stream error', err);
   } finally {
+    // Always clear heartbeat timer
+    if (!heartbeatCleared) {
+      clearInterval(heartbeatInterval);
+    }
+
     // Flush any remaining buffer
     if (buffer.trim()) {
       const remaining = buffer.trim();
@@ -335,17 +488,69 @@ function classifyAndRoute(
   weights: DimensionWeights,
   logReader: LogReader,
   routingTable: RoutingTable,
+  hasTools = false,
 ) {
   const lastUserMsg = messages.filter(m => m.role === 'user').pop();
   if (!lastUserMsg) throw new Error('No user message found');
 
-  const override = detectOverrides(messages, forceModel, undefined, logReader);
+  const override = detectOverrides(messages, forceModel, undefined, logReader, hasTools);
   const classification = classifyPrompt(lastUserMsg.content, {
     messageCount: messages.length,
     systemPrompt,
   }, weights, config.classifier.thresholds);
 
   const decision = routeRequest(classification, config.mode, override, registry, config, routingTable);
+
+  return { decision, classification };
+}
+
+/**
+ * Classify, route, and apply session pinning.
+ * If a session ID is present, checks for an existing pin:
+ * - If pinned and new tier ≤ pinned tier → reuse pinned model
+ * - If pinned and new tier > pinned tier → upgrade pin
+ * - If no pin → create new pin
+ */
+function classifyAndRouteWithSession(
+  messages: Array<{ role: string; content: string }>,
+  systemPrompt: string | undefined,
+  forceModel: string | undefined,
+  config: ThrottleConfig,
+  registry: ModelRegistry,
+  weights: DimensionWeights,
+  logReader: LogReader,
+  routingTable: RoutingTable,
+  hasTools: boolean,
+  sessionId: string | undefined,
+  sessionStore: SessionStore,
+) {
+  const { decision, classification } = classifyAndRoute(
+    messages, systemPrompt, forceModel, config, registry, weights, logReader, routingTable, hasTools,
+  );
+
+  // Apply session pinning if session ID is present
+  if (sessionId) {
+    const pinResult = sessionStore.set(sessionId, decision.model.id, classification.tier);
+
+    // If the session store returned a different model (existing pin, no upgrade),
+    // swap the decision model to the pinned one
+    if (pinResult.modelId !== decision.model.id) {
+      const pinnedModel = registry.getById(pinResult.modelId);
+      if (pinnedModel) {
+        log.info(`Session ${sessionId}: using pinned model ${pinnedModel.id} instead of ${decision.model.id}`);
+        return {
+          decision: {
+            ...decision,
+            model: pinnedModel,
+            reasoning: `${decision.reasoning} [session-pinned from ${decision.model.id}]`,
+          },
+          classification,
+        };
+      }
+      // If pinned model no longer exists in registry, fall through to new decision
+      log.warn(`Session ${sessionId}: pinned model ${pinResult.modelId} not found in registry, using ${decision.model.id}`);
+    }
+  }
 
   return { decision, classification };
 }
@@ -359,16 +564,24 @@ function getForceModel(req: http.IncomingMessage): string | undefined {
   return undefined;
 }
 
+function getSessionId(req: http.IncomingMessage): string | undefined {
+  const header = req.headers['x-session-id'];
+  const value = Array.isArray(header) ? header[0] : header;
+  return value?.trim() || undefined;
+}
+
 function setThrottleHeaders(
   res: http.ServerResponse,
   modelId: string,
   tier: string,
   score: number,
+  confidence: number,
   requestId: string,
 ): void {
   res.setHeader('X-Throttle-Model', modelId);
   res.setHeader('X-Throttle-Tier', tier);
   res.setHeader('X-Throttle-Score', score.toFixed(3));
+  res.setHeader('X-Throttle-Confidence', confidence.toFixed(3));
   res.setHeader('X-Throttle-Request-Id', requestId);
 }
 
@@ -376,12 +589,14 @@ function getThrottleHeadersObj(
   modelId: string,
   tier: string,
   score: number,
+  confidence: number,
   requestId: string,
 ): Record<string, string> {
   return {
     'X-Throttle-Model': modelId,
     'X-Throttle-Tier': tier,
     'X-Throttle-Score': score.toFixed(3),
+    'X-Throttle-Confidence': confidence.toFixed(3),
     'X-Throttle-Request-Id': requestId,
   };
 }
@@ -403,6 +618,7 @@ function writeLogEntry(
     timestamp: new Date().toISOString(),
     promptHash: hashPrompt(lastUserMsg?.content ?? ''),
     compositeScore: classification.score,
+    confidence: classification.confidence,
     tier: classification.tier,
     selectedModel: decision.model.id,
     provider: decision.model.provider,

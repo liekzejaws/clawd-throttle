@@ -29,14 +29,16 @@ function makeConfig(keys: Partial<Record<string, string>> = {}): ThrottleConfig 
   } as ThrottleConfig;
 }
 
-function makeClassification(tier: 'simple' | 'standard' | 'complex', score: number): ClassificationResult {
+function makeClassification(tier: 'simple' | 'standard' | 'complex', score: number, confidence = 0.95): ClassificationResult {
   return {
     tier,
     score,
+    confidence,
     dimensions: {
       tokenCount: 0, codePresence: 0, reasoningMarkers: 0,
       simpleIndicators: 0, multiStepPatterns: 0, questionCount: 0,
       systemPromptSignals: 0, conversationDepth: 0,
+      agenticTask: 0, technicalTerms: 0, constraintCount: 0,
     },
     classifiedInMs: 0.1,
   };

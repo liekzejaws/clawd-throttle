@@ -16,17 +16,23 @@ import {
   scoreQuestionCount,
   scoreSystemPromptSignals,
   scoreConversationDepth,
+  scoreAgenticTask,
+  scoreTechnicalTerms,
+  scoreConstraintCount,
 } from './dimensions.js';
 
 const DEFAULT_WEIGHTS: DimensionWeights = {
-  tokenCount: 0.12,
-  codePresence: 0.22,
-  reasoningMarkers: 0.25,
+  tokenCount: 0.10,
+  codePresence: 0.20,
+  reasoningMarkers: 0.22,
   simpleIndicators: -0.15,
-  multiStepPatterns: 0.20,
-  questionCount: 0.07,
-  systemPromptSignals: 0.10,
-  conversationDepth: 0.12,
+  multiStepPatterns: 0.18,
+  questionCount: 0.06,
+  systemPromptSignals: 0.09,
+  conversationDepth: 0.10,
+  agenticTask: 0.04,
+  technicalTerms: 0.05,
+  constraintCount: 0.03,
 };
 
 export function loadWeights(weightsPath: string): DimensionWeights {
@@ -35,6 +41,38 @@ export function loadWeights(weightsPath: string): DimensionWeights {
   }
   const raw = fs.readFileSync(weightsPath, 'utf-8');
   return JSON.parse(raw) as DimensionWeights;
+}
+
+/**
+ * Sigmoid confidence calibration — inspired by ClawRouter.
+ * Maps distance-from-nearest-boundary into a 0–1 confidence score.
+ * Near-boundary classifications get low confidence (~0.50),
+ * far-from-boundary ones get high confidence (~1.0).
+ */
+export function calibrateConfidence(
+  composite: number,
+  tier: ComplexityTier,
+  thresholds: { simpleMax: number; complexMin: number },
+  steepness = 10,
+): number {
+  let distance: number;
+
+  if (tier === 'simple') {
+    // Distance from simpleMax boundary (how far below)
+    distance = thresholds.simpleMax - composite;
+  } else if (tier === 'complex') {
+    // Distance from complexMin boundary (how far above)
+    distance = composite - thresholds.complexMin;
+  } else {
+    // Standard tier: distance from nearest boundary
+    distance = Math.min(
+      composite - thresholds.simpleMax,
+      thresholds.complexMin - composite,
+    );
+  }
+
+  // Sigmoid: 1 / (1 + e^(-steepness * distance))
+  return 1 / (1 + Math.exp(-steepness * distance));
 }
 
 export function classifyPrompt(
@@ -54,6 +92,9 @@ export function classifyPrompt(
     questionCount: scoreQuestionCount(text),
     systemPromptSignals: scoreSystemPromptSignals(meta.systemPrompt),
     conversationDepth: scoreConversationDepth(meta.messageCount),
+    agenticTask: scoreAgenticTask(text),
+    technicalTerms: scoreTechnicalTerms(text),
+    constraintCount: scoreConstraintCount(text),
   };
 
   let composite = 0;
@@ -73,11 +114,14 @@ export function classifyPrompt(
     tier = 'standard';
   }
 
+  const confidence = calibrateConfidence(composite, tier, thresholds);
+
   const t1 = performance.now();
 
   return {
     tier,
     score: composite,
+    confidence,
     dimensions,
     classifiedInMs: t1 - t0,
   };
