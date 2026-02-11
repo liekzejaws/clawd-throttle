@@ -1,6 +1,6 @@
 {
   "name": "clawd-throttle-skill",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "OpenClaw skill that routes LLM requests to the cheapest capable model based on prompt complexity",
   "type": "module",
   "main": "src/index.ts",
