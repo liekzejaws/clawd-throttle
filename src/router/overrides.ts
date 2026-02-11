@@ -6,16 +6,15 @@ const log = createLogger('overrides');
 
 // Model hierarchy for sub-agent step-down (cheapest → most expensive)
 const MODEL_HIERARCHY: string[] = [
-  'gemini-2.0-flash-lite',   // tier 0 — ultra budget
-  'gemini-2.5-flash',        // tier 1 — budget
-  'deepseek-chat',           // tier 2 — value
-  'claude-sonnet-4-5',       // tier 3 — balanced
-  'claude-opus-4-5',         // tier 4 — flagship
-  'claude-opus-4-6',         // tier 5 — premium
+  'gemini-2.5-flash',                // tier 0 — budget
+  'grok-4-1-fast-non-reasoning',     // tier 1 — speed
+  'claude-haiku-4-5',                // tier 2 — capable
+  'claude-sonnet-4-5',               // tier 3 — balanced
+  'claude-opus-4-6',                 // tier 4 — premium
 ];
 
 // Default cheapest model for heartbeats
-const HEARTBEAT_MODEL = 'gemini-2.5-flash';
+const HEARTBEAT_MODEL = 'grok-4-1-fast-non-reasoning';
 
 // Force model aliases: short name → catalog model ID
 export const FORCE_MODEL_MAP: Record<string, string> = {
@@ -27,7 +26,6 @@ export const FORCE_MODEL_MAP: Record<string, string> = {
   haiku: 'claude-haiku-4-5',
   'haiku-3-5': 'claude-haiku-3-5',
   flash: 'gemini-2.5-flash',
-  'flash-lite': 'gemini-2.0-flash-lite',
   // OpenAI
   'gpt-5': 'gpt-5.2',
   'gpt-5.2': 'gpt-5.2',
@@ -105,16 +103,7 @@ export function detectOverrides(
     }
   }
 
-  // 4. Twitter/X content detection → route to Grok (skip if coding task)
-  if (isTwitterQuery(lastUserContent) && !isCodingTask(lastUserContent)) {
-    log.debug('Override: Twitter/X content detected, routing to Grok');
-    return {
-      kind: 'content_twitter',
-      forcedModelId: 'grok-4-0709',
-    };
-  }
-
-  // 5. Sub-agent tier inheritance
+  // 4. Sub-agent tier inheritance
   if (parentRequestId) {
     const parentEntry = logReader.getEntryById(parentRequestId);
     if (parentEntry) {
@@ -133,7 +122,7 @@ export function detectOverrides(
     }
   }
 
-  // 6. No override
+  // 5. No override
   return { kind: 'none' };
 }
 
@@ -148,39 +137,6 @@ function isHeartbeatOrSummary(text: string): boolean {
     /^can\s+you\s+(summarize|recap)\s+(this|the|our|everything)(\??)$/,
   ];
 
-  return patterns.some(p => p.test(normalized));
-}
-
-/**
- * Detect Twitter/X-related queries that benefit from Grok's X integration.
- */
-function isTwitterQuery(text: string): boolean {
-  const normalized = text.toLowerCase();
-  const patterns = [
-    /\b(tweet|tweets|tweeting|tweeted)\b/,
-    /\b(twitter|x\.com|x post|x thread)\b/,
-    /\b(trending on x|trending on twitter)\b/,
-    /\b(@\w+)\b.*\b(said|posted|tweeted|wrote)\b/,
-    /\bwhat('s| is) trending\b/,
-  ];
-  return patterns.some(p => p.test(normalized));
-}
-
-/**
- * Detect coding-focused tasks. Used as a guard for content-based overrides
- * (e.g. prevents "build a Twitter clone" from routing to Grok).
- */
-export function isCodingTask(text: string): boolean {
-  const normalized = text.toLowerCase();
-  const patterns = [
-    /\b(write|implement|code|debug|fix|refactor)\s+(a\s+)?(function|class|method|module|component|script|program|api)\b/,
-    /\b(typescript|javascript|python|rust|go|java|c\+\+|ruby|php|swift|kotlin)\b/,
-    /\b(npm|pip|cargo|maven|gradle|webpack|vite)\b/,
-    /\b(git|github|gitlab|bitbucket)\s+(commit|push|pull|merge|rebase|branch)\b/,
-    /```[\w]*\n/,
-    /\b(syntax error|stack trace|stacktrace|exception|bug|crash|segfault)\b/,
-    /\b(unit test|integration test|test case|jest|vitest|pytest|mocha)\b/,
-  ];
   return patterns.some(p => p.test(normalized));
 }
 

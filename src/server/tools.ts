@@ -148,7 +148,7 @@ export function registerTools(
       }, weights, config.classifier.thresholds);
 
       const routingPreview: Record<string, string> = {};
-      for (const mode of ['eco', 'standard', 'performance'] as const) {
+      for (const mode of ['eco', 'standard', 'gigachad'] as const) {
         const decision = routeRequest(
           classification, mode,
           { kind: 'none' },
@@ -257,9 +257,9 @@ export function registerTools(
   // Tool 5: set_mode - Change routing mode at runtime
   server.tool(
     'set_mode',
-    'Change the active routing mode. eco=cheapest, standard=balanced, performance=highest quality.',
+    'Change the active routing mode. eco=cheapest, standard=balanced, gigachad=highest quality.',
     {
-      mode: z.enum(['eco', 'standard', 'performance'])
+      mode: z.enum(['eco', 'standard', 'gigachad'])
         .describe('The routing mode to activate'),
     },
     async ({ mode }) => {

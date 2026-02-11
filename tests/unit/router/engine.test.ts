@@ -43,58 +43,61 @@ function makeClassification(tier: 'simple' | 'standard' | 'complex', score: numb
 
 describe('routeRequest', () => {
   describe('eco mode', () => {
-    it('routes simple to Ollama (cheapest in preference)', () => {
+    it('routes simple to Flash (Grok Fast not configured)', () => {
       const result = routeRequest(makeClassification('simple', 0.1), 'eco', noOverride, registry, config, routingTable);
-      // Preference: ollama-default, gemini-2.0-flash-lite, gpt-5-nano, mistral-small, grok-4-1-fast-non-reasoning
-      expect(result.model.id).toBe('ollama-default');
+      // Preference: grok-fast (xai, not configured), gemini-2.5-flash (google, configured)
+      expect(result.model.id).toBe('gemini-2.5-flash');
     });
 
     it('routes standard to Flash', () => {
       const result = routeRequest(makeClassification('standard', 0.4), 'eco', noOverride, registry, config, routingTable);
-      // Preference: gemini-2.5-flash, gpt-4o-mini, deepseek-chat, grok-3-mini
+      // Preference: gemini-2.5-flash, grok-fast, gpt-4o-mini, deepseek-chat
       expect(result.model.id).toBe('gemini-2.5-flash');
     });
 
-    it('routes complex to Sonnet', () => {
+    it('routes complex to Haiku', () => {
       const result = routeRequest(makeClassification('complex', 0.8), 'eco', noOverride, registry, config, routingTable);
-      // Preference: deepseek-reasoner, kimi-k2.5, claude-sonnet-4-5
-      // DeepSeek + Moonshot not configured => Sonnet
-      expect(result.model.id).toBe('claude-sonnet-4-5');
+      // Preference: claude-haiku-4-5, deepseek-reasoner, kimi-k2.5, grok-3-mini
+      expect(result.model.id).toBe('claude-haiku-4-5');
     });
   });
 
   describe('standard mode', () => {
-    it('routes simple to Flash', () => {
+    it('routes simple to Flash (Grok Fast not configured)', () => {
       const result = routeRequest(makeClassification('simple', 0.1), 'standard', noOverride, registry, config, routingTable);
+      // Preference: grok-fast (xai, not configured), gemini-2.5-flash (google, configured)
       expect(result.model.id).toBe('gemini-2.5-flash');
     });
 
-    it('routes standard to Sonnet', () => {
+    it('routes standard to Haiku', () => {
       const result = routeRequest(makeClassification('standard', 0.4), 'standard', noOverride, registry, config, routingTable);
-      // Preference: kimi-k2.5, claude-sonnet-4-5, gpt-5.1, deepseek-reasoner
-      // Moonshot not configured => Sonnet
-      expect(result.model.id).toBe('claude-sonnet-4-5');
+      // Preference: claude-haiku-4-5, grok-fast, gemini-2.5-flash, deepseek-chat
+      expect(result.model.id).toBe('claude-haiku-4-5');
     });
 
-    it('routes complex to Opus', () => {
+    it('routes complex to Sonnet', () => {
       const result = routeRequest(makeClassification('complex', 0.8), 'standard', noOverride, registry, config, routingTable);
-      expect(result.model.id).toBe('claude-opus-4-5');
+      // Preference: claude-sonnet-4-5, claude-haiku-4-5, gpt-5.1, deepseek-reasoner
+      expect(result.model.id).toBe('claude-sonnet-4-5');
     });
   });
 
-  describe('performance mode', () => {
+  describe('gigachad mode', () => {
     it('routes simple to Haiku', () => {
-      const result = routeRequest(makeClassification('simple', 0.1), 'performance', noOverride, registry, config, routingTable);
+      const result = routeRequest(makeClassification('simple', 0.1), 'gigachad', noOverride, registry, config, routingTable);
+      // Preference: claude-haiku-4-5, grok-fast, gemini-2.5-flash
       expect(result.model.id).toBe('claude-haiku-4-5');
     });
 
     it('routes standard to Sonnet', () => {
-      const result = routeRequest(makeClassification('standard', 0.4), 'performance', noOverride, registry, config, routingTable);
+      const result = routeRequest(makeClassification('standard', 0.4), 'gigachad', noOverride, registry, config, routingTable);
+      // Preference: claude-sonnet-4-5, claude-haiku-4-5, gpt-5.1, grok-4
       expect(result.model.id).toBe('claude-sonnet-4-5');
     });
 
     it('routes complex to Opus 4.6', () => {
-      const result = routeRequest(makeClassification('complex', 0.8), 'performance', noOverride, registry, config, routingTable);
+      const result = routeRequest(makeClassification('complex', 0.8), 'gigachad', noOverride, registry, config, routingTable);
+      // Preference: claude-opus-4-6, claude-sonnet-4-5, gpt-5.2, o3
       expect(result.model.id).toBe('claude-opus-4-6');
     });
   });

@@ -3,7 +3,7 @@ import type { ComplexityTier } from '../classifier/types.js';
 import type { ModelSpec } from '../router/types.js';
 
 /** Default baseline if none provided (legacy Opus pricing). */
-const DEFAULT_BASELINE = { inputCostPerMTok: 5.00, outputCostPerMTok: 25.00, displayName: 'claude-opus-4-5' };
+const DEFAULT_BASELINE = { inputCostPerMTok: 5.00, outputCostPerMTok: 25.00, displayName: 'claude-opus-4-6' };
 
 export function computeStats(
   entries: RoutingLogEntry[],

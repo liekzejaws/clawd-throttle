@@ -64,7 +64,7 @@ describe('computeStats', () => {
     expect(stats.costIfAlwaysPremium).toBeCloseTo(0.030, 4);
     expect(stats.estimatedSavingsUsd).toBeGreaterThan(0);
     expect(stats.savingsPercent).toBeGreaterThan(90);
-    expect(stats.baselineModel).toBe('claude-opus-4-5');
+    expect(stats.baselineModel).toBe('claude-opus-4-6');
   });
 
   it('uses custom baseline model when provided', () => {

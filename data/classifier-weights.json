@@ -1,6 +1,6 @@
 {
   "tokenCount": 0.20,
-  "codePresence": 0.15,
+  "codePresence": 0.18,
   "reasoningMarkers": 0.18,
   "simpleIndicators": -0.15,
   "multiStepPatterns": 0.15,

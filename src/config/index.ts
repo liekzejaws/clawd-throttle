@@ -31,6 +31,11 @@ export function loadConfig(): ThrottleConfig {
 
   const config = deepMerge(defaults as unknown as Record<string, unknown>, fileConfig as Record<string, unknown>) as unknown as ThrottleConfig;
 
+  // Migrate legacy 'performance' mode → 'gigachad'
+  if ((config as Record<string, unknown>).mode === 'performance') {
+    config.mode = 'gigachad';
+  }
+
   // Provider API keys
   if (process.env['ANTHROPIC_API_KEY']) {
     config.anthropic.apiKey = process.env['ANTHROPIC_API_KEY'];
@@ -69,7 +74,7 @@ export function loadConfig(): ThrottleConfig {
   // Routing and general settings
   if (process.env['CLAWD_THROTTLE_MODE']) {
     const envMode = process.env['CLAWD_THROTTLE_MODE'];
-    if (envMode === 'eco' || envMode === 'standard' || envMode === 'performance') {
+    if (envMode === 'eco' || envMode === 'standard' || envMode === 'gigachad') {
       config.mode = envMode;
     }
   }
