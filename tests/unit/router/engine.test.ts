@@ -13,7 +13,7 @@ const noOverride: OverrideResult = { kind: 'none' };
 // Config with Anthropic + Google + Ollama configured (backward-compat baseline)
 const config = {
   mode: 'standard',
-  anthropic: { apiKey: 'test-key', baseUrl: 'https://api.anthropic.com' },
+  anthropic: { apiKey: 'test-key', baseUrl: 'https://api.anthropic.com', authType: 'auto' },
   google: { apiKey: 'test-key', baseUrl: 'https://generativelanguage.googleapis.com' },
   openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1' },
   deepseek: { apiKey: '', baseUrl: 'https://api.deepseek.com/v1' },
@@ -45,7 +45,7 @@ describe('routeRequest', () => {
   describe('eco mode', () => {
     it('routes simple to Ollama (cheapest in preference)', () => {
       const result = routeRequest(makeClassification('simple', 0.1), 'eco', noOverride, registry, config, routingTable);
-      // Preference: ollama-default, gemini-2.0-flash-lite, gpt-5-nano, mistral-small, grok-4.1-fast
+      // Preference: ollama-default, gemini-2.0-flash-lite, gpt-5-nano, mistral-small, grok-4-1-fast-non-reasoning
       expect(result.model.id).toBe('ollama-default');
     });
 

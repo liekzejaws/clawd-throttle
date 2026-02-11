@@ -8,6 +8,7 @@ export interface ThrottleConfig {
   anthropic: {
     apiKey: string;
     baseUrl: string;
+    authType: 'api-key' | 'bearer' | 'auto';
   };
 
   google: {

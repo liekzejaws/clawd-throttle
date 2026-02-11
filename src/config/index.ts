@@ -35,6 +35,15 @@ export function loadConfig(): ThrottleConfig {
   if (process.env['ANTHROPIC_API_KEY']) {
     config.anthropic.apiKey = process.env['ANTHROPIC_API_KEY'];
   }
+  if (process.env['ANTHROPIC_AUTH_TYPE']) {
+    const envAuthType = process.env['ANTHROPIC_AUTH_TYPE'];
+    if (envAuthType === 'api-key' || envAuthType === 'bearer' || envAuthType === 'auto') {
+      config.anthropic.authType = envAuthType;
+    }
+  }
+  if (process.env['ANTHROPIC_BASE_URL']) {
+    config.anthropic.baseUrl = process.env['ANTHROPIC_BASE_URL'];
+  }
   if (process.env['GOOGLE_AI_API_KEY']) {
     config.google.apiKey = process.env['GOOGLE_AI_API_KEY'];
   }

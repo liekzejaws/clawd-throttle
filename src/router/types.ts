@@ -21,6 +21,8 @@ export type OverrideKind =
   | 'force_sonnet'
   | 'force_flash'
   | 'force_model'
+  | 'content_twitter'
+  | 'content_coding'
   | 'sub_agent_inherit'
   | 'sub_agent_stepdown'
   | 'none';

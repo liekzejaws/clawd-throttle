@@ -215,6 +215,7 @@ export function registerTools(
         anthropic: {
           apiKey: redactKey(config.anthropic.apiKey),
           baseUrl: config.anthropic.baseUrl,
+          authType: config.anthropic.authType,
         },
         google: {
           apiKey: redactKey(config.google.apiKey),

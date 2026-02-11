@@ -1,6 +1,7 @@
 import type { ProxyRequest, ProxyResponse } from './types.js';
 import type { ThrottleConfig } from '../config/types.js';
 import { performance } from 'node:perf_hooks';
+import { buildAnthropicAuthHeaders } from './anthropic-auth.js';
 
 export async function callAnthropic(
   request: ProxyRequest,
@@ -29,7 +30,7 @@ export async function callAnthropic(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': config.anthropic.apiKey,
+      ...buildAnthropicAuthHeaders(config),
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),

@@ -137,7 +137,7 @@
       "maxContextTokens": 128000
     },
     {
-      "id": "grok-4",
+      "id": "grok-4-0709",
       "displayName": "Grok 4",
       "provider": "xai",
       "inputCostPerMTok": 3.00,
@@ -161,7 +161,7 @@
       "maxContextTokens": 131072
     },
     {
-      "id": "grok-4.1-fast",
+      "id": "grok-4-1-fast-non-reasoning",
       "displayName": "Grok 4.1 Fast",
       "provider": "xai",
       "inputCostPerMTok": 0.20,

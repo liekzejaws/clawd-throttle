@@ -68,7 +68,7 @@ describe('detectOverrides', () => {
     it('detects /grok slash command', () => {
       const result = detectOverrides([{ role: 'user', content: '/grok what is this' }], undefined, undefined, logReader);
       expect(result.kind).toBe('force_model');
-      expect(result.forcedModelId).toBe('grok-4');
+      expect(result.forcedModelId).toBe('grok-4-0709');
     });
 
     it('detects /kimi slash command', () => {
@@ -224,6 +224,35 @@ describe('detectOverrides', () => {
       );
       expect(result.kind).toBe('sub_agent_inherit');
       expect(result.forcedModelId).toBe('gemini-2.0-flash-lite');
+    });
+  });
+
+  describe('Twitter/X detection', () => {
+    it('routes tweet-related queries to Grok', () => {
+      const result = detectOverrides([{ role: 'user', content: 'What are the latest tweets about AI?' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('content_twitter');
+      expect(result.forcedModelId).toBe('grok-4-0709');
+    });
+
+    it('routes trending queries to Grok', () => {
+      const result = detectOverrides([{ role: 'user', content: "What's trending on Twitter right now?" }], undefined, undefined, logReader);
+      expect(result.kind).toBe('content_twitter');
+      expect(result.forcedModelId).toBe('grok-4-0709');
+    });
+
+    it('does not route general queries to Grok', () => {
+      const result = detectOverrides([{ role: 'user', content: 'Explain quantum computing' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('none');
+    });
+
+    it('skips Twitter override for coding tasks', () => {
+      const result = detectOverrides([{ role: 'user', content: 'Write a Twitter clone in typescript' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('none');
+    });
+
+    it('explicit force command overrides Twitter detection', () => {
+      const result = detectOverrides([{ role: 'user', content: '/opus tell me about tweets' }], undefined, undefined, logReader);
+      expect(result.kind).toBe('force_opus');
     });
   });
 

@@ -13,7 +13,7 @@ const noOverride: OverrideResult = { kind: 'none' };
 function makeConfig(keys: Partial<Record<string, string>> = {}): ThrottleConfig {
   return {
     mode: 'standard',
-    anthropic: { apiKey: keys.anthropic ?? '', baseUrl: 'https://api.anthropic.com' },
+    anthropic: { apiKey: keys.anthropic ?? '', baseUrl: 'https://api.anthropic.com', authType: 'auto' as const },
     google: { apiKey: keys.google ?? '', baseUrl: 'https://generativelanguage.googleapis.com' },
     openai: { apiKey: keys.openai ?? '', baseUrl: 'https://api.openai.com/v1' },
     deepseek: { apiKey: keys.deepseek ?? '', baseUrl: 'https://api.deepseek.com/v1' },
@@ -144,13 +144,13 @@ describe('Multi-provider preference-list routing', () => {
 
     it('resolvePreference returns null when no model available', () => {
       const config = makeConfig({});
-      const result = registry.resolvePreference(['claude-opus-4-5', 'gpt-5.2', 'grok-4'], config);
+      const result = registry.resolvePreference(['claude-opus-4-5', 'gpt-5.2', 'grok-4-0709'], config);
       expect(result).toBeNull();
     });
 
     it('resolvePreference returns first available model', () => {
       const config = makeConfig({ openai: 'key' });
-      const result = registry.resolvePreference(['claude-opus-4-5', 'gpt-5.2', 'grok-4'], config);
+      const result = registry.resolvePreference(['claude-opus-4-5', 'gpt-5.2', 'grok-4-0709'], config);
       expect(result?.id).toBe('gpt-5.2');
     });
   });

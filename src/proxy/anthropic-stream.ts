@@ -1,6 +1,7 @@
 import type { ProxyRequest, StreamingProxyResult } from './types.js';
 import type { ThrottleConfig } from '../config/types.js';
 import { performance } from 'node:perf_hooks';
+import { buildAnthropicAuthHeaders } from './anthropic-auth.js';
 
 /**
  * Streaming variant of callAnthropic. Returns the raw Response
@@ -34,7 +35,7 @@ export async function callAnthropicStream(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': config.anthropic.apiKey,
+      ...buildAnthropicAuthHeaders(config),
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),

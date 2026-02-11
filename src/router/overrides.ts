@@ -42,11 +42,14 @@ export const FORCE_MODEL_MAP: Record<string, string> = {
   'deepseek-r1': 'deepseek-reasoner',
   'deepseek-reasoner': 'deepseek-reasoner',
   // xAI / Grok
-  grok: 'grok-4',
-  'grok-4': 'grok-4',
+  grok: 'grok-4-0709',
+  'grok-4': 'grok-4-0709',
+  'grok-4-0709': 'grok-4-0709',
   'grok-3': 'grok-3',
   'grok-mini': 'grok-3-mini',
-  'grok-fast': 'grok-4.1-fast',
+  'grok-fast': 'grok-4-1-fast-non-reasoning',
+  'grok-4.1-fast': 'grok-4-1-fast-non-reasoning',
+  'grok-4-1-fast-non-reasoning': 'grok-4-1-fast-non-reasoning',
   // Moonshot / Kimi
   kimi: 'kimi-k2.5',
   'kimi-thinking': 'kimi-k2-thinking',
@@ -102,7 +105,16 @@ export function detectOverrides(
     }
   }
 
-  // 4. Sub-agent tier inheritance
+  // 4. Twitter/X content detection → route to Grok (skip if coding task)
+  if (isTwitterQuery(lastUserContent) && !isCodingTask(lastUserContent)) {
+    log.debug('Override: Twitter/X content detected, routing to Grok');
+    return {
+      kind: 'content_twitter',
+      forcedModelId: 'grok-4-0709',
+    };
+  }
+
+  // 5. Sub-agent tier inheritance
   if (parentRequestId) {
     const parentEntry = logReader.getEntryById(parentRequestId);
     if (parentEntry) {
@@ -121,7 +133,7 @@ export function detectOverrides(
     }
   }
 
-  // 5. No override
+  // 6. No override
   return { kind: 'none' };
 }
 
@@ -136,6 +148,39 @@ function isHeartbeatOrSummary(text: string): boolean {
     /^can\s+you\s+(summarize|recap)\s+(this|the|our|everything)(\??)$/,
   ];
 
+  return patterns.some(p => p.test(normalized));
+}
+
+/**
+ * Detect Twitter/X-related queries that benefit from Grok's X integration.
+ */
+function isTwitterQuery(text: string): boolean {
+  const normalized = text.toLowerCase();
+  const patterns = [
+    /\b(tweet|tweets|tweeting|tweeted)\b/,
+    /\b(twitter|x\.com|x post|x thread)\b/,
+    /\b(trending on x|trending on twitter)\b/,
+    /\b(@\w+)\b.*\b(said|posted|tweeted|wrote)\b/,
+    /\bwhat('s| is) trending\b/,
+  ];
+  return patterns.some(p => p.test(normalized));
+}
+
+/**
+ * Detect coding-focused tasks. Used as a guard for content-based overrides
+ * (e.g. prevents "build a Twitter clone" from routing to Grok).
+ */
+export function isCodingTask(text: string): boolean {
+  const normalized = text.toLowerCase();
+  const patterns = [
+    /\b(write|implement|code|debug|fix|refactor)\s+(a\s+)?(function|class|method|module|component|script|program|api)\b/,
+    /\b(typescript|javascript|python|rust|go|java|c\+\+|ruby|php|swift|kotlin)\b/,
+    /\b(npm|pip|cargo|maven|gradle|webpack|vite)\b/,
+    /\b(git|github|gitlab|bitbucket)\s+(commit|push|pull|merge|rebase|branch)\b/,
+    /```[\w]*\n/,
+    /\b(syntax error|stack trace|stacktrace|exception|bug|crash|segfault)\b/,
+    /\b(unit test|integration test|test case|jest|vitest|pytest|mocha)\b/,
+  ];
   return patterns.some(p => p.test(normalized));
 }
 

@@ -14,6 +14,7 @@ export const defaults: ThrottleConfig = {
   anthropic: {
     apiKey: '',
     baseUrl: 'https://api.anthropic.com',
+    authType: 'auto',
   },
   google: {
     apiKey: '',
