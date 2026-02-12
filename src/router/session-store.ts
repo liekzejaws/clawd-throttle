@@ -7,6 +7,7 @@ interface SessionEntry {
   modelId: string;
   tier: ComplexityTier;
   lastUsedAt: number;
+  lastFailedAt?: number;
 }
 
 const TIER_RANK: Record<ComplexityTier, number> = {
@@ -93,6 +94,34 @@ export class SessionStore {
       lastUsedAt: Date.now(),
     });
     return { modelId, tier };
+  }
+
+  /**
+   * Mark a session as having experienced a failure.
+   * On the next request, this will trigger tier escalation.
+   */
+  markFailed(sessionId: string): void {
+    const entry = this.sessions.get(sessionId);
+    if (entry) {
+      entry.lastFailedAt = Date.now();
+      log.info(`Session ${sessionId}: marked failed (will escalate next request)`);
+    }
+  }
+
+  /**
+   * Check if a session has a recent failure within the given window.
+   * Clears the failure flag after reading (one-shot escalation).
+   */
+  hasRecentFailure(sessionId: string, withinMs = 5 * 60 * 1000): boolean {
+    const entry = this.sessions.get(sessionId);
+    if (!entry?.lastFailedAt) return false;
+
+    const isRecent = Date.now() - entry.lastFailedAt <= withinMs;
+    if (isRecent) {
+      // Clear the flag so it only triggers once
+      entry.lastFailedAt = undefined;
+    }
+    return isRecent;
   }
 
   /**

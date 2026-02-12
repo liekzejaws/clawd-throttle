@@ -37,7 +37,7 @@ function makeClassification(tier: 'simple' | 'standard' | 'complex', score: numb
       tokenCount: 0, codePresence: 0, reasoningMarkers: 0,
       simpleIndicators: 0, multiStepPatterns: 0, questionCount: 0,
       systemPromptSignals: 0, conversationDepth: 0,
-      agenticTask: 0, technicalTerms: 0, constraintCount: 0,
+      agenticTask: 0, technicalTerms: 0, constraintCount: 0, escalationSignals: 0,
     },
     classifiedInMs: 0.1,
   };

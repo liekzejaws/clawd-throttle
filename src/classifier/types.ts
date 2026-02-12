@@ -12,6 +12,7 @@ export interface DimensionScores {
   agenticTask: number;
   technicalTerms: number;
   constraintCount: number;
+  escalationSignals: number;
 }
 
 export interface DimensionWeights {
@@ -26,6 +27,7 @@ export interface DimensionWeights {
   agenticTask: number;
   technicalTerms: number;
   constraintCount: number;
+  escalationSignals: number;
 }
 
 export interface ClassificationMeta {

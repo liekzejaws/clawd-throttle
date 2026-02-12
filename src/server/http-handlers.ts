@@ -155,6 +155,7 @@ export async function handleMessages(
       res.end(responseBody);
     } catch (err) {
       dedupCache.removeInflight(dedupKey, err instanceof Error ? err : new Error(String(err)));
+      if (sessionId) sessionStore.markFailed(sessionId);
       throw err;
     }
     return;
@@ -177,10 +178,15 @@ export async function handleMessages(
     temperature: parsed.temperature,
   };
 
-  await handleStreamingResponse(
-    proxyRequest, decision, classification, config, requestId,
-    'anthropic', res, logWriter, parsed.messages, clientId,
-  );
+  try {
+    await handleStreamingResponse(
+      proxyRequest, decision, classification, config, requestId,
+      'anthropic', res, logWriter, parsed.messages, clientId,
+    );
+  } catch (err) {
+    if (sessionId) sessionStore.markFailed(sessionId);
+    throw err;
+  }
 }
 
 // ─── POST /v1/chat/completions (OpenAI format) ─────────────────────────
@@ -265,6 +271,7 @@ export async function handleChatCompletions(
       res.end(responseBody);
     } catch (err) {
       dedupCache.removeInflight(dedupKey, err instanceof Error ? err : new Error(String(err)));
+      if (sessionId) sessionStore.markFailed(sessionId);
       throw err;
     }
     return;
@@ -287,10 +294,15 @@ export async function handleChatCompletions(
     temperature: parsed.temperature,
   };
 
-  await handleStreamingResponse(
-    proxyRequest, decision, classification, config, requestId,
-    'openai', res, logWriter, parsed.messages, clientId,
-  );
+  try {
+    await handleStreamingResponse(
+      proxyRequest, decision, classification, config, requestId,
+      'openai', res, logWriter, parsed.messages, clientId,
+    );
+  } catch (err) {
+    if (sessionId) sessionStore.markFailed(sessionId);
+    throw err;
+  }
 }
 
 // ─── Streaming ─────────────────────────────────────────────────────────
@@ -530,12 +542,28 @@ function classifyAndRouteWithSession(
   sessionId: string | undefined,
   sessionStore: SessionStore,
 ) {
-  const { decision, classification } = classifyAndRoute(
+  let { decision, classification } = classifyAndRoute(
     messages, systemPrompt, forceModel, config, registry, weights, logReader, routingTable, hasTools,
   );
 
   // Apply session pinning if session ID is present
   if (sessionId) {
+    // Check for recent failure → escalate tier before pinning
+    if (sessionStore.hasRecentFailure(sessionId)) {
+      const tierOrder: Array<import('../classifier/types.js').ComplexityTier> = ['simple', 'standard', 'complex'];
+      const currentIdx = tierOrder.indexOf(classification.tier);
+      if (currentIdx < tierOrder.length - 1) {
+        const escalatedTier = tierOrder[currentIdx + 1];
+        log.info(`Session ${sessionId}: failure-escalating ${classification.tier} → ${escalatedTier}`);
+        // Re-route at the higher tier
+        const escalatedClassification = { ...classification, tier: escalatedTier };
+        const override = detectOverrides(messages, forceModel, undefined, logReader, hasTools);
+        const escalatedDecision = routeRequest(escalatedClassification, config.mode, override, registry, config, routingTable);
+        decision = { ...escalatedDecision, reasoning: `${escalatedDecision.reasoning} [failure-escalated]` };
+        classification = escalatedClassification;
+      }
+    }
+
     const pinResult = sessionStore.set(sessionId, decision.model.id, classification.tier);
 
     // If the session store returned a different model (existing pin, no upgrade),

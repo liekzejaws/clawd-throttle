@@ -72,6 +72,17 @@ rules, and set up distributed tracing with OpenTelemetry.`;
     expect(result.dimensions).toHaveProperty('questionCount');
     expect(result.dimensions).toHaveProperty('systemPromptSignals');
     expect(result.dimensions).toHaveProperty('conversationDepth');
+    expect(result.dimensions).toHaveProperty('escalationSignals');
+  });
+
+  it('escalation language increases score', () => {
+    const base = classifyPrompt('Write a function that adds two numbers', {}, weights, thresholds);
+    const escalated = classifyPrompt(
+      "That didn't work, I'm stuck. Your previous suggestion failed. Try again with a different approach.",
+      {}, weights, thresholds,
+    );
+    expect(escalated.score).toBeGreaterThan(base.score);
+    expect(escalated.dimensions.escalationSignals).toBeGreaterThan(0.3);
   });
 
   it('clamps composite score to [0, 1]', () => {

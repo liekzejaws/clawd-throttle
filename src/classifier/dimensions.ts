@@ -70,7 +70,7 @@ export function scoreReasoningMarkers(text: string): number {
   score += Math.min(0.60, cotHits * 0.20);
 
   const debugHits = (text.match(
-    /\b(debug|diagnose|troubleshoot|root cause|investigate|figure out why|what went wrong|what's? causing)\b/gi
+    /\b(debug|diagnose|troubleshoot|root cause|investigate|figure out why|what went wrong|what's? causing|doesn't work|doesn't make sense|behaves differently|unexpected behavior|inconsistent)\b/gi
   ) || []).length;
   score += Math.min(0.40, debugHits * 0.12);
 
@@ -245,7 +245,7 @@ export function scoreAgenticTask(text: string): number {
  */
 export function scoreTechnicalTerms(text: string): number {
   const hits = (text.match(
-    /\b(algorithm|kubernetes|k8s|docker|container|API|database|microservices?|OAuth|JWT|GraphQL|REST|gRPC|WebSocket|CI\/CD|terraform|nginx|redis|postgres|mongoDB|kafka|RabbitMQ|elasticsearch|lambda|serverless|CDN|DNS|TLS|SSL|SSH|HTTP|TCP|UDP|CORS|CSRF|XSS|SQL|NoSQL|ORM|SDK|CLI|regex|mutex|semaphore|deadlock|thread|process|kernel|syscall|cache|index|shard|replica|partition|load[- ]balanc|auto[- ]scal|circuit[- ]break)\b/gi
+    /\b(algorithm|kubernetes|k8s|docker|container|API|database|microservices?|OAuth|JWT|GraphQL|REST|gRPC|WebSocket|CI\/CD|terraform|nginx|redis|postgres|mongoDB|kafka|RabbitMQ|elasticsearch|lambda|serverless|CDN|DNS|TLS|SSL|SSH|HTTP|TCP|UDP|CORS|CSRF|XSS|SQL|NoSQL|ORM|SDK|CLI|regex|mutex|semaphore|deadlock|thread|process|kernel|syscall|cache|index|shard|replica|partition|load[- ]balanc|auto[- ]scal|circuit[- ]break|production|staging|race[- ]condition|vulnerability|security[- ]audit|memory[- ]leak|stack[- ]overflow|segfault|core[- ]dump|under[- ]load)\b/gi
   ) || []).length;
 
   return interpolateBreakpoints(hits, [
@@ -257,6 +257,42 @@ export function scoreTechnicalTerms(text: string): number {
     { value: 10, score: 0.90 },
     { value: 15, score: 1.00 },
   ]);
+}
+
+/**
+ * Detects escalation, frustration, and retry language.
+ * Inspired by model-hierarchy-skill's escalation signals.
+ * When users express that previous approaches failed or they're stuck,
+ * it indicates the task needs a more capable model.
+ */
+export function scoreEscalationSignals(text: string): number {
+  let score = 0;
+
+  // Direct frustration / retry language
+  const retryHits = (text.match(
+    /\b(try again|tried|still not working|didn't work|didn't work|not working|broken|can't get .+ to work)\b/gi
+  ) || []).length;
+  score += Math.min(0.50, retryHits * 0.15);
+
+  // Failure reference language
+  const failureHits = (text.match(
+    /\b(failed|failing|failure|errors?|crash|crashes|crashing|keeps? (?:failing|crashing|breaking))\b/gi
+  ) || []).length;
+  score += Math.min(0.40, failureHits * 0.12);
+
+  // Stuck / help-seeking language
+  const stuckHits = (text.match(
+    /\b(stuck|blocked|at a loss|can't figure out|no idea what|none of these work|nothing works|out of ideas|give up|last resort|help me)\b/gi
+  ) || []).length;
+  score += Math.min(0.50, stuckHits * 0.18);
+
+  // Previous-attempt reference
+  const previousHits = (text.match(
+    /\b(previous approach|previous attempt|previous solution|earlier suggestion|already tried|we tried|I tried|your suggestion didn't)\b/gi
+  ) || []).length;
+  score += Math.min(0.40, previousHits * 0.15);
+
+  return Math.min(1.0, score);
 }
 
 /**

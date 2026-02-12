@@ -19,6 +19,7 @@ import {
   scoreAgenticTask,
   scoreTechnicalTerms,
   scoreConstraintCount,
+  scoreEscalationSignals,
 } from './dimensions.js';
 
 const DEFAULT_WEIGHTS: DimensionWeights = {
@@ -30,9 +31,10 @@ const DEFAULT_WEIGHTS: DimensionWeights = {
   questionCount: 0.06,
   systemPromptSignals: 0.09,
   conversationDepth: 0.10,
-  agenticTask: 0.04,
+  agenticTask: 0.02,
   technicalTerms: 0.05,
   constraintCount: 0.03,
+  escalationSignals: 0.12,
 };
 
 export function loadWeights(weightsPath: string): DimensionWeights {
@@ -95,6 +97,7 @@ export function classifyPrompt(
     agenticTask: scoreAgenticTask(text),
     technicalTerms: scoreTechnicalTerms(text),
     constraintCount: scoreConstraintCount(text),
+    escalationSignals: scoreEscalationSignals(text),
   };
 
   let composite = 0;

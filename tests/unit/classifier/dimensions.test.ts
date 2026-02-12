@@ -11,6 +11,7 @@ import {
   scoreAgenticTask,
   scoreTechnicalTerms,
   scoreConstraintCount,
+  scoreEscalationSignals,
 } from '../../../src/classifier/dimensions.js';
 
 describe('scoreTokenCount', () => {
@@ -68,6 +69,10 @@ describe('scoreReasoningMarkers', () => {
   it('detects debugging language', () => {
     const text = 'Debug this and figure out why it crashes';
     expect(scoreReasoningMarkers(text)).toBeGreaterThan(0.2);
+  });
+
+  it('detects production debugging language', () => {
+    expect(scoreReasoningMarkers("It doesn't work and behaves differently in staging")).toBeGreaterThan(0.2);
   });
 });
 
@@ -211,6 +216,11 @@ describe('scoreTechnicalTerms', () => {
     const text = 'Set up PostgreSQL database with Redis cache and Kafka message queue';
     expect(scoreTechnicalTerms(text)).toBeGreaterThan(0.3);
   });
+
+  it('detects production/ops terms', () => {
+    const text = 'Fix the race condition causing a memory leak in production under load';
+    expect(scoreTechnicalTerms(text)).toBeGreaterThan(0.4);
+  });
 });
 
 describe('scoreConstraintCount', () => {
@@ -231,5 +241,33 @@ describe('scoreConstraintCount', () => {
   it('detects bound language', () => {
     const text = 'Limit to 5 retries with a maximum timeout of 30 seconds';
     expect(scoreConstraintCount(text)).toBeGreaterThan(0.3);
+  });
+});
+
+describe('scoreEscalationSignals', () => {
+  it('scores zero for normal text', () => {
+    expect(scoreEscalationSignals('Write a hello world function')).toBe(0);
+  });
+
+  it('detects retry language', () => {
+    expect(scoreEscalationSignals("That didn't work, try again")).toBeGreaterThan(0.2);
+  });
+
+  it('detects stuck language', () => {
+    expect(scoreEscalationSignals("I'm stuck and out of ideas")).toBeGreaterThan(0.3);
+  });
+
+  it('detects failure language', () => {
+    expect(scoreEscalationSignals('It keeps crashing with errors')).toBeGreaterThan(0.2);
+  });
+
+  it('detects previous-attempt language', () => {
+    expect(scoreEscalationSignals('The previous approach failed, already tried that')).toBeGreaterThan(0.2);
+  });
+
+  it('scores high for combined escalation', () => {
+    expect(scoreEscalationSignals(
+      "I'm stuck. Nothing works. I tried your previous suggestion but it still crashes. I'm out of ideas, try again with a different approach."
+    )).toBeGreaterThan(0.7);
   });
 });

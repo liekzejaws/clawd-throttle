@@ -109,4 +109,42 @@ describe('SessionStore', () => {
     expect(kept.modelId).toBe('claude-opus-4-6');
     expect(kept.tier).toBe('complex');
   });
+
+  describe('failure tracking', () => {
+    it('markFailed records failure on existing session', () => {
+      store.set('fail-1', 'claude-haiku-4-5', 'simple');
+      store.markFailed('fail-1');
+      expect(store.hasRecentFailure('fail-1')).toBe(true);
+    });
+
+    it('hasRecentFailure returns false for unfailed session', () => {
+      store.set('fail-2', 'claude-haiku-4-5', 'simple');
+      expect(store.hasRecentFailure('fail-2')).toBe(false);
+    });
+
+    it('hasRecentFailure clears the flag (one-shot)', () => {
+      store.set('fail-3', 'claude-haiku-4-5', 'simple');
+      store.markFailed('fail-3');
+      expect(store.hasRecentFailure('fail-3')).toBe(true);
+      // Second call should return false (cleared)
+      expect(store.hasRecentFailure('fail-3')).toBe(false);
+    });
+
+    it('hasRecentFailure returns false after window expires', () => {
+      const shortStore = new SessionStore(30 * 60 * 1000);
+      shortStore.set('fail-4', 'claude-haiku-4-5', 'simple');
+      shortStore.markFailed('fail-4');
+
+      vi.useFakeTimers();
+      vi.advanceTimersByTime(6 * 60 * 1000); // 6 minutes > 5 min window
+      expect(shortStore.hasRecentFailure('fail-4')).toBe(false);
+      vi.useRealTimers();
+    });
+
+    it('markFailed is a no-op for unknown session', () => {
+      // Should not throw
+      store.markFailed('nonexistent');
+      expect(store.hasRecentFailure('nonexistent')).toBe(false);
+    });
+  });
 });
