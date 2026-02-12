@@ -13,7 +13,7 @@ const noOverride: OverrideResult = { kind: 'none' };
 function makeConfig(keys: Partial<Record<string, string>> = {}): ThrottleConfig {
   return {
     mode: 'standard',
-    anthropic: { apiKey: keys.anthropic ?? '', baseUrl: 'https://api.anthropic.com', authType: 'auto' as const },
+    anthropic: { apiKey: keys.anthropic ?? '', setupToken: '', preferSetupToken: true, baseUrl: 'https://api.anthropic.com', authType: 'auto' as const },
     google: { apiKey: keys.google ?? '', baseUrl: 'https://generativelanguage.googleapis.com' },
     openai: { apiKey: keys.openai ?? '', baseUrl: 'https://api.openai.com/v1' },
     deepseek: { apiKey: keys.deepseek ?? '', baseUrl: 'https://api.deepseek.com/v1' },

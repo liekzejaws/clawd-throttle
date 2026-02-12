@@ -37,12 +37,32 @@ async function main(): Promise<void> {
   if (configured.length === 0) {
     log.error(
       'No provider API keys configured. Set at least one: ' +
-      'ANTHROPIC_API_KEY, GOOGLE_AI_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, ' +
+      'ANTHROPIC_API_KEY, ANTHROPIC_SETUP_TOKEN, GOOGLE_AI_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, ' +
       'XAI_API_KEY, MOONSHOT_API_KEY, MISTRAL_API_KEY, or configure Ollama.',
     );
     process.exit(1);
   }
   log.info(`Configured providers: ${configured.join(', ')}`);
+
+  // 3b. Log Anthropic dual-key status
+  if (configured.includes('anthropic')) {
+    const hasSetupToken = config.anthropic.setupToken.length > 0;
+    const hasEnterprise = config.anthropic.apiKey.length > 0;
+    const keyParts: string[] = [];
+    keyParts.push(`setup-token ${hasSetupToken ? '✓' : '✗'}`);
+    keyParts.push(`enterprise ${hasEnterprise ? '✓' : '✗'}`);
+    log.info(`Anthropic keys: ${keyParts.join(', ')} | prefer: ${config.anthropic.preferSetupToken ? 'setup-token' : 'enterprise'}`);
+
+    if (config.anthropic.preferSetupToken && !hasSetupToken && hasEnterprise) {
+      log.warn('preferSetupToken is true but no setup token configured — will use enterprise key only');
+    }
+    if (!config.anthropic.preferSetupToken && !hasEnterprise && hasSetupToken) {
+      log.warn('preferSetupToken is false but no enterprise key configured — will use setup token only');
+    }
+    if (hasSetupToken && hasEnterprise) {
+      log.info('Dual-key failover enabled: will try preferred key first, fallback on 429/401');
+    }
+  }
 
   // 4. Load routing table
   const routingTable = loadRoutingTable(config.routingTablePath);
@@ -69,7 +89,7 @@ async function main(): Promise<void> {
   if (!flags['http-only']) {
     const server = new McpServer({
       name: 'clawd-throttle',
-      version: '1.0.0',
+      version: '2.2.0',
     });
 
     registerTools(server, config, registry, weights, logWriter, logReader, routingTable);

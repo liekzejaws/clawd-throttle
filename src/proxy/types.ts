@@ -22,6 +22,8 @@ export interface ProxyResponse {
   provider: ApiProvider;
   latencyMs: number;
   finishReason: string;
+  keyType?: string;     // 'setup-token' | 'enterprise' (Anthropic only)
+  failover?: boolean;   // true if primary key failed and fallback was used
 }
 
 export interface StreamingProxyResult {
@@ -29,6 +31,8 @@ export interface StreamingProxyResult {
   modelId: string;
   provider: ApiProvider;
   startMs: number;
+  keyType?: string;     // 'setup-token' | 'enterprise' (Anthropic only)
+  failover?: boolean;   // true if primary key failed and fallback was used
 }
 
 export interface ProviderConfig {

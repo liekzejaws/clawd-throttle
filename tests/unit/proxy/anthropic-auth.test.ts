@@ -7,6 +7,8 @@ function makeConfig(overrides: { apiKey?: string; baseUrl?: string; authType?: '
     mode: 'standard',
     anthropic: {
       apiKey: overrides.apiKey ?? '',
+      setupToken: '',
+      preferSetupToken: true,
       baseUrl: overrides.baseUrl ?? 'https://api.anthropic.com',
       authType: overrides.authType ?? 'auto',
     },

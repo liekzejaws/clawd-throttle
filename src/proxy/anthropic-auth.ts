@@ -10,14 +10,15 @@ const log = createLogger('anthropic-auth');
  * - 'bearer': uses Authorization: Bearer header (OAuth / proxy)
  * - 'auto': detects from key format — sk-ant-* uses api-key, else bearer
  */
-export function buildAnthropicAuthHeaders(config: ThrottleConfig): Record<string, string> {
-  const { apiKey, authType, baseUrl } = config.anthropic;
+export function buildAnthropicAuthHeaders(config: ThrottleConfig, keyOverride?: string): Record<string, string> {
+  const { authType, baseUrl } = config.anthropic;
+  const key = keyOverride ?? config.anthropic.apiKey;
 
   const useApiKey = authType === 'api-key'
-    || (authType === 'auto' && apiKey.startsWith('sk-ant-'));
+    || (authType === 'auto' && key.startsWith('sk-ant-'));
 
   if (useApiKey) {
-    return { 'x-api-key': apiKey };
+    return { 'x-api-key': key };
   }
 
   if (baseUrl.includes('api.anthropic.com')) {
@@ -28,5 +29,5 @@ export function buildAnthropicAuthHeaders(config: ThrottleConfig): Record<string
     );
   }
 
-  return { 'Authorization': `Bearer ${apiKey}` };
+  return { 'Authorization': `Bearer ${key}` };
 }

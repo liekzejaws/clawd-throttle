@@ -10,6 +10,7 @@ import { classifyPrompt } from '../classifier/engine.js';
 import { routeRequest } from '../router/engine.js';
 import { detectOverrides, FORCE_MODEL_MAP } from '../router/overrides.js';
 import { dispatch } from '../proxy/dispatcher.js';
+import { getAnthropicDualKey } from '../proxy/anthropic-dual-key.js';
 import { estimateCost } from '../logging/writer.js';
 import { computeStats } from '../logging/stats.js';
 import { hashPrompt } from '../utils/hash.js';
@@ -97,6 +98,8 @@ export function registerTools(
           estimatedCostUsd: cost,
           latencyMs: proxyResponse.latencyMs,
           parentRequestId,
+          ...(proxyResponse.keyType ? { keyType: proxyResponse.keyType } : {}),
+          ...(proxyResponse.failover !== undefined ? { failover: proxyResponse.failover } : {}),
         });
 
         return {
@@ -209,13 +212,19 @@ export function registerTools(
       const redactKey = (key: string): string =>
         key ? '***' + key.slice(-4) : '(not set)';
 
+      const dualKey = getAnthropicDualKey(config);
+      const dualKeyStatus = dualKey.getStatus();
+
       const safe = {
         mode: config.mode,
         configuredProviders: registry.getConfiguredProviders(config),
         anthropic: {
           apiKey: redactKey(config.anthropic.apiKey),
+          setupToken: redactKey(config.anthropic.setupToken),
+          preferSetupToken: config.anthropic.preferSetupToken,
           baseUrl: config.anthropic.baseUrl,
           authType: config.anthropic.authType,
+          dualKeyStatus: dualKeyStatus,
         },
         google: {
           apiKey: redactKey(config.google.apiKey),
@@ -297,12 +306,117 @@ export function registerTools(
         cost: `$${e.estimatedCostUsd.toFixed(4)}`,
         latency: `${e.latencyMs}ms`,
         parentRequestId: e.parentRequestId || null,
+        clientId: e.clientId || null,
+        keyType: e.keyType || null,
+        failover: e.failover ?? null,
       }));
 
       return {
         content: [{
           type: 'text' as const,
           text: JSON.stringify({ entries: formatted, count: formatted.length }, null, 2),
+        }],
+      };
+    },
+  );
+
+  // Tool 7: set_anthropic_priority - Switch which Anthropic key is tried first
+  server.tool(
+    'set_anthropic_priority',
+    'Switch which Anthropic API key is tried first. setup-token uses Claude Max subscription (free), enterprise uses paid API credits.',
+    {
+      prefer_setup_token: z.boolean()
+        .describe('true = try setup-token first (free), false = try enterprise key first (paid)'),
+    },
+    async ({ prefer_setup_token }) => {
+      const previous = config.anthropic.preferSetupToken;
+      config.anthropic.preferSetupToken = prefer_setup_token;
+      saveConfig({ anthropic: { preferSetupToken: prefer_setup_token } } as Partial<ThrottleConfig>);
+
+      const dualKey = getAnthropicDualKey(config);
+      const status = dualKey.getStatus();
+      const activeKeyType = prefer_setup_token
+        ? (status.setupToken.available ? 'setup-token' : 'enterprise')
+        : (status.enterprise.available ? 'enterprise' : 'setup-token');
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: true,
+            previousPreference: previous ? 'setup-token' : 'enterprise',
+            newPreference: prefer_setup_token ? 'setup-token' : 'enterprise',
+            activeKeyType,
+            status,
+            message: `Anthropic key priority changed. Primary key: ${activeKeyType}.`,
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
+  // Tool 8: get_quota_status - Per-key and per-client usage breakdown
+  server.tool(
+    'get_quota_status',
+    'Get Anthropic dual-key usage breakdown: per-key costs, per-client costs, failover count, and current key status.',
+    {
+      days: z.number().int().positive().optional().default(1)
+        .describe('Lookback period in days (default: 1)'),
+    },
+    async ({ days }) => {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const entries = logReader.readSince(since.toISOString());
+
+      // Filter to Anthropic entries only
+      const anthropicEntries = entries.filter(e => e.provider === 'anthropic');
+
+      // Per-key aggregation
+      const byKey: Record<string, { requests: number; costUsd: number; inputTokens: number; outputTokens: number }> = {};
+      let failoverCount = 0;
+
+      for (const entry of anthropicEntries) {
+        const kt = entry.keyType ?? 'unknown';
+        if (!byKey[kt]) {
+          byKey[kt] = { requests: 0, costUsd: 0, inputTokens: 0, outputTokens: 0 };
+        }
+        byKey[kt]!.requests++;
+        byKey[kt]!.costUsd += entry.estimatedCostUsd;
+        byKey[kt]!.inputTokens += entry.inputTokens;
+        byKey[kt]!.outputTokens += entry.outputTokens;
+
+        if (entry.failover) {
+          failoverCount++;
+        }
+      }
+
+      // Per-client aggregation
+      const byClient: Record<string, { requests: number; costUsd: number }> = {};
+      for (const entry of anthropicEntries) {
+        const cid = entry.clientId ?? '(no client id)';
+        if (!byClient[cid]) {
+          byClient[cid] = { requests: 0, costUsd: 0 };
+        }
+        byClient[cid]!.requests++;
+        byClient[cid]!.costUsd += entry.estimatedCostUsd;
+      }
+
+      // Current dual-key status
+      const dualKey = getAnthropicDualKey(config);
+      const status = dualKey.getStatus();
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            period: { days, since: since.toISOString() },
+            totalAnthropicRequests: anthropicEntries.length,
+            failoverCount,
+            preferSetupToken: config.anthropic.preferSetupToken,
+            keyStatus: status,
+            byKeyType: byKey,
+            byClient,
+          }, null, 2),
         }],
       };
     },

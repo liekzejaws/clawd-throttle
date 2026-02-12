@@ -18,6 +18,9 @@ export interface RoutingLogEntry {
   estimatedCostUsd: number;
   latencyMs: number;
   parentRequestId?: string;
+  clientId?: string;        // From X-Client-ID header
+  keyType?: string;         // 'setup-token' | 'enterprise' (Anthropic dual-key)
+  failover?: boolean;       // true if primary key failed, fallback was used
 }
 
 export interface AggregateStats {

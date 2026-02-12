@@ -58,6 +58,10 @@ export class ModelRegistry {
     if (provider === 'ollama') {
       return config.ollama.baseUrl.length > 0;
     }
+    // Anthropic supports dual keys: either apiKey or setupToken is sufficient
+    if (provider === 'anthropic') {
+      return config.anthropic.apiKey.length > 0 || config.anthropic.setupToken.length > 0;
+    }
     const providerConfig = config[provider] as { apiKey: string; baseUrl: string };
     return providerConfig.apiKey.length > 0;
   }

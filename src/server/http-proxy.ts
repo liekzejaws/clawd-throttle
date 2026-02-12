@@ -43,7 +43,7 @@ export function createHttpProxy(deps: HttpProxyDeps): http.Server {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, X-Throttle-Force-Model, X-Session-ID');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, X-Throttle-Force-Model, X-Session-ID, X-Client-ID');
     res.setHeader('Access-Control-Expose-Headers', 'X-Throttle-Model, X-Throttle-Tier, X-Throttle-Score, X-Throttle-Confidence, X-Throttle-Request-Id');
 
     // Handle CORS preflight

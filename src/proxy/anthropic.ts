@@ -7,6 +7,7 @@ import { buildAnthropicAuthHeaders } from './anthropic-auth.js';
 export async function callAnthropic(
   request: ProxyRequest,
   config: ThrottleConfig,
+  keyOverride?: string,
 ): Promise<ProxyResponse> {
   const url = `${config.anthropic.baseUrl}/v1/messages`;
   const startMs = performance.now();
@@ -31,7 +32,7 @@ export async function callAnthropic(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...buildAnthropicAuthHeaders(config),
+      ...buildAnthropicAuthHeaders(config, keyOverride),
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),

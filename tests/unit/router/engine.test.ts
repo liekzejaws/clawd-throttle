@@ -13,7 +13,7 @@ const noOverride: OverrideResult = { kind: 'none' };
 // Config with Anthropic + Google + Ollama configured (backward-compat baseline)
 const config = {
   mode: 'standard',
-  anthropic: { apiKey: 'test-key', baseUrl: 'https://api.anthropic.com', authType: 'auto' },
+  anthropic: { apiKey: 'test-key', setupToken: '', preferSetupToken: true, baseUrl: 'https://api.anthropic.com', authType: 'auto' },
   google: { apiKey: 'test-key', baseUrl: 'https://generativelanguage.googleapis.com' },
   openai: { apiKey: '', baseUrl: 'https://api.openai.com/v1' },
   deepseek: { apiKey: '', baseUrl: 'https://api.deepseek.com/v1' },

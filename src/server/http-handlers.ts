@@ -83,6 +83,7 @@ export async function handleMessages(
   const requestId = crypto.randomUUID();
   const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
   const sessionId = getSessionId(req);
+  const clientId = getClientId(req);
 
   // Dedup check (non-streaming only)
   if (!parsed.stream) {
@@ -134,7 +135,8 @@ export async function handleMessages(
       const cost = estimateCost(decision.model, proxyResponse.inputTokens, proxyResponse.outputTokens);
 
       writeLogEntry(logWriter, requestId, classification, decision, proxyResponse.inputTokens,
-        proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages);
+        proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages,
+        { clientId, keyType: proxyResponse.keyType, failover: proxyResponse.failover });
 
       const responseBody = JSON.stringify(formatAnthropicResponse(proxyResponse, requestId), null, 2);
 
@@ -177,7 +179,7 @@ export async function handleMessages(
 
   await handleStreamingResponse(
     proxyRequest, decision, classification, config, requestId,
-    'anthropic', res, logWriter, parsed.messages,
+    'anthropic', res, logWriter, parsed.messages, clientId,
   );
 }
 
@@ -196,6 +198,7 @@ export async function handleChatCompletions(
   const requestId = crypto.randomUUID();
   const hasTools = Array.isArray(body.tools) && body.tools.length > 0;
   const sessionId = getSessionId(req);
+  const clientId = getClientId(req);
 
   // Dedup check (non-streaming only)
   if (!parsed.stream) {
@@ -243,7 +246,8 @@ export async function handleChatCompletions(
       const cost = estimateCost(decision.model, proxyResponse.inputTokens, proxyResponse.outputTokens);
 
       writeLogEntry(logWriter, requestId, classification, decision, proxyResponse.inputTokens,
-        proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages);
+        proxyResponse.outputTokens, cost, proxyResponse.latencyMs, parsed.messages,
+        { clientId, keyType: proxyResponse.keyType, failover: proxyResponse.failover });
 
       const responseBody = JSON.stringify(formatOpenAiResponse(proxyResponse, requestId), null, 2);
 
@@ -285,7 +289,7 @@ export async function handleChatCompletions(
 
   await handleStreamingResponse(
     proxyRequest, decision, classification, config, requestId,
-    'openai', res, logWriter, parsed.messages,
+    'openai', res, logWriter, parsed.messages, clientId,
   );
 }
 
@@ -301,6 +305,7 @@ async function handleStreamingResponse(
   res: http.ServerResponse,
   logWriter: LogWriter,
   messages: Array<{ role: string; content: string }>,
+  clientId?: string,
 ): Promise<void> {
   const streamResult = await streamDispatch(proxyRequest, config);
 
@@ -398,7 +403,8 @@ async function handleStreamingResponse(
     const latencyMs = Math.round(performance.now() - streamResult.startMs);
     const cost = estimateCost(decision.model, accumulator.inputTokens, accumulator.outputTokens);
     writeLogEntry(logWriter, requestId, classification, decision,
-      accumulator.inputTokens, accumulator.outputTokens, cost, latencyMs, messages);
+      accumulator.inputTokens, accumulator.outputTokens, cost, latencyMs, messages,
+      { clientId, keyType: streamResult.keyType, failover: streamResult.failover });
   }
 }
 
@@ -570,6 +576,12 @@ function getSessionId(req: http.IncomingMessage): string | undefined {
   return value?.trim() || undefined;
 }
 
+function getClientId(req: http.IncomingMessage): string | undefined {
+  const header = req.headers['x-client-id'];
+  const value = Array.isArray(header) ? header[0] : header;
+  return value?.trim() || undefined;
+}
+
 function setThrottleHeaders(
   res: http.ServerResponse,
   modelId: string,
@@ -611,6 +623,7 @@ function writeLogEntry(
   cost: number,
   latencyMs: number,
   messages: Array<{ role: string; content: string }>,
+  extras?: { clientId?: string; keyType?: string; failover?: boolean },
 ): void {
   const lastUserMsg = messages.filter(m => m.role === 'user').pop();
   logWriter.append({
@@ -628,6 +641,9 @@ function writeLogEntry(
     outputTokens,
     estimatedCostUsd: cost,
     latencyMs,
+    ...(extras?.clientId ? { clientId: extras.clientId } : {}),
+    ...(extras?.keyType ? { keyType: extras.keyType } : {}),
+    ...(extras?.failover !== undefined ? { failover: extras.failover } : {}),
   });
 }
 
