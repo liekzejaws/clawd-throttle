@@ -21,6 +21,8 @@ All API keys are **optional**. Configure one or more providers — Clawd Throttl
 
 ## Quick Start
 
+### Standalone Use
+
 ```bash
 # 1. Clone and install
 npm install
@@ -38,15 +40,18 @@ npm start -- --http    # MCP + HTTP proxy
 npm start -- --http-only  # HTTP proxy only
 ```
 
-```json
-{
-  "clawd-throttle": {
-    "command": "npx",
-    "args": ["tsx", "src/index.ts"],
-    "cwd": "/path/to/clawd-throttle"
-  }
-}
-```
+### OpenClaw Integration
+
+**📖 See [OPENCLAW_SETUP.md](OPENCLAW_SETUP.md) for full integration guide.**
+
+Quick version:
+1. Install: `cd /root/clawd/skills && git clone <repo> && cd clawd-throttle && npm install`
+2. Configure: Create `~/.config/clawd-throttle/config.json` with API keys and mode
+3. Start service: `sudo systemctl start clawd-throttle-http` (see systemd template)
+4. Route OpenClaw: Add `ANTHROPIC_BASE_URL=http://127.0.0.1:8484` to openclaw.json env.vars
+5. Restart OpenClaw: `openclaw gateway stop && openclaw gateway start`
+
+**⚠️ DO NOT** add throttle as an MCP provider under `auth.profiles` in openclaw.json — this breaks the gateway. Use the HTTP proxy method with `ANTHROPIC_BASE_URL` instead.
 
 ## HTTP Proxy Mode
 

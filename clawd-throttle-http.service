@@ -1,0 +1,17 @@
+[Unit]
+Description=Clawd Throttle HTTP proxy (LLM routing)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/clawd/skills/clawd-throttle
+ExecStart=/usr/bin/npx tsx src/index.ts --http
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment="NODE_ENV=production"
+
+[Install]
+WantedBy=multi-user.target
