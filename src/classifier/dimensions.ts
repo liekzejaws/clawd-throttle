@@ -313,3 +313,42 @@ export function scoreConstraintCount(text: string): number {
     { value: 7, score: 1.00 },
   ]);
 }
+
+/**
+ * Detects multi-language coding tasks where MiniMax excels.
+ * MiniMax has strong support for 20+ programming languages.
+ */
+export function scoreMultiLanguageCode(text: string): number {
+  let score = 0;
+  
+  // Language-specific patterns
+  const langPatterns: [RegExp, string][] = [
+    [/\b(import\s+\{|export\s+(default|const|function|class|async))\b/g, 'ts'],
+    [/\b(def\s+\w+|class\s+\w+:\s*|import\s+\w+$)\b/gm, 'python'],
+    [/\b(fn\s+\w+|let\s+mut|impl\s+\w+|pub\s+fn)\b/g, 'rust'],
+    [/\b(func\s+\w+|package\s+\w+|type\s+\w+\s+struct)\b/g, 'go'],
+    [/\b(public\s+class|private\s+|void\s+\w+\(|System\.out)\b/g, 'java'],
+    [/\b(#include|int\s+main\(|std::|cout\s*<<)\b/g, 'cpp'],
+    [/\b(<\?php|function\s+\w+\(|\$\w+\s*=)\b/g, 'php'],
+    [/\b(SELECT|INSERT|UPDATE|DELETE|CREATE\s+TABLE)\b/gi, 'sql'],
+    [/\b(<\w+>|<\/\w+>|<!DOCTYPE|div\s+class)\b/gi, 'html'],
+  ];
+  
+  const detected = new Set<string>();
+  for (const [pattern, lang] of langPatterns) {
+    if (pattern.test(text)) {
+      detected.add(lang);
+    }
+  }
+  
+  // Score based on number of different languages detected
+  // Multi-language files (e.g., React + TypeScript + CSS) get higher score
+  score = Math.min(1.0, detected.size * 0.25);
+  
+  // Bonus for common coding task keywords that MiniMax handles well
+  const codeTaskKeywords = /\b(refactor|migrate|port|convert|translate|parse|serialize|deserialize|lint|format|build|compile|test|debug)\b/gi;
+  const keywordHits = (text.match(codeTaskKeywords) || []).length;
+  score += Math.min(0.3, keywordHits * 0.1);
+  
+  return Math.min(1.0, score);
+}

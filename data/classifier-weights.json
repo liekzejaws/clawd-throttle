@@ -10,5 +10,6 @@
   "agenticTask": 0.02,
   "technicalTerms": 0.05,
   "constraintCount": 0.03,
-  "escalationSignals": 0.12
+  "escalationSignals": 0.12,
+  "multiLanguageCode": 0.08
 }

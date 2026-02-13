@@ -20,6 +20,7 @@ import {
   scoreTechnicalTerms,
   scoreConstraintCount,
   scoreEscalationSignals,
+  scoreMultiLanguageCode,
 } from './dimensions.js';
 
 const DEFAULT_WEIGHTS: DimensionWeights = {
@@ -35,6 +36,7 @@ const DEFAULT_WEIGHTS: DimensionWeights = {
   technicalTerms: 0.05,
   constraintCount: 0.03,
   escalationSignals: 0.12,
+  multiLanguageCode: 0.08,
 };
 
 export function loadWeights(weightsPath: string): DimensionWeights {
@@ -98,6 +100,7 @@ export function classifyPrompt(
     technicalTerms: scoreTechnicalTerms(text),
     constraintCount: scoreConstraintCount(text),
     escalationSignals: scoreEscalationSignals(text),
+    multiLanguageCode: scoreMultiLanguageCode(text),
   };
 
   let composite = 0;

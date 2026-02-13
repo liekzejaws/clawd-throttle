@@ -13,6 +13,7 @@ export interface DimensionScores {
   technicalTerms: number;
   constraintCount: number;
   escalationSignals: number;
+  multiLanguageCode: number;
 }
 
 export interface DimensionWeights {
@@ -28,6 +29,7 @@ export interface DimensionWeights {
   technicalTerms: number;
   constraintCount: number;
   escalationSignals: number;
+  multiLanguageCode: number;
 }
 
 export interface ClassificationMeta {
