@@ -1,13 +1,8 @@
 import type { ProxyMessage, ProxyResponse } from '../proxy/types.js';
 import type { ApiProvider } from '../router/types.js';
+import type { ParsedRequest } from './parsed-request.js';
 
-export interface ParsedRequest {
-  messages: ProxyMessage[];
-  systemPrompt: string | undefined;
-  maxTokens: number;
-  temperature: number | undefined;
-  stream: boolean;
-}
+export type { ParsedRequest };
 
 /**
  * Parse an OpenAI Chat Completions request body into our internal format.

@@ -35,26 +35,26 @@ describe('detectOverrides', () => {
     });
   });
 
-  describe('force commands (legacy)', () => {
+  describe('force commands (Anthropic models)', () => {
     it('detects forceModel parameter for opus', () => {
       const result = detectOverrides([{ role: 'user', content: 'hello' }], 'opus', undefined, logReader);
-      expect(result.kind).toBe('force_opus');
+      expect(result.kind).toBe('force_model');
       expect(result.forcedModelId).toBe('claude-opus-4-6');
     });
 
     it('detects /opus prefix', () => {
       const result = detectOverrides([{ role: 'user', content: '/opus write code' }], undefined, undefined, logReader);
-      expect(result.kind).toBe('force_opus');
+      expect(result.kind).toBe('force_model');
     });
 
     it('detects /sonnet prefix', () => {
       const result = detectOverrides([{ role: 'user', content: '/sonnet quick question' }], undefined, undefined, logReader);
-      expect(result.kind).toBe('force_sonnet');
+      expect(result.kind).toBe('force_model');
     });
 
     it('detects /flash prefix', () => {
       const result = detectOverrides([{ role: 'user', content: '/flash hello' }], undefined, undefined, logReader);
-      expect(result.kind).toBe('force_flash');
+      expect(result.kind).toBe('force_model');
     });
   });
 
@@ -274,12 +274,12 @@ describe('detectOverrides', () => {
 
     it('force model takes priority over tool_calling', () => {
       const result = detectOverrides([{ role: 'user', content: 'hello' }], 'opus', undefined, logReader, true);
-      expect(result.kind).toBe('force_opus');
+      expect(result.kind).toBe('force_model');
     });
 
     it('slash command takes priority over tool_calling', () => {
       const result = detectOverrides([{ role: 'user', content: '/sonnet build this' }], undefined, undefined, logReader, true);
-      expect(result.kind).toBe('force_sonnet');
+      expect(result.kind).toBe('force_model');
     });
   });
 

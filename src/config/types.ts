@@ -1,4 +1,4 @@
-export type RoutingMode = 'eco' | 'standard' | 'gigachad';
+export type RoutingMode = 'eco' | 'standard' | 'performance' | 'gigachad';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -44,6 +44,11 @@ export interface ThrottleConfig {
   };
 
   ollama: {
+    apiKey: string;
+    baseUrl: string;
+  };
+
+  minimax: {
     apiKey: string;
     baseUrl: string;
   };

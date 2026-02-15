@@ -1,13 +1,7 @@
-import type { ProxyMessage } from '../proxy/types.js';
-import type { ProxyResponse } from '../proxy/types.js';
+import type { ProxyMessage, ProxyResponse } from '../proxy/types.js';
+import type { ParsedRequest } from './parsed-request.js';
 
-export interface ParsedRequest {
-  messages: ProxyMessage[];
-  systemPrompt: string | undefined;
-  maxTokens: number;
-  temperature: number | undefined;
-  stream: boolean;
-}
+export type { ParsedRequest };
 
 /**
  * Parse an Anthropic Messages API request body into our internal format.

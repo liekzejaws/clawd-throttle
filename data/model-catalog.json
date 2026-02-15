@@ -207,6 +207,14 @@
       "inputCostPerMTok": 0.00,
       "outputCostPerMTok": 0.00,
       "maxContextTokens": 128000
+    },
+    {
+      "id": "minimax-m2.5",
+      "displayName": "MiniMax M2.5",
+      "provider": "minimax",
+      "inputCostPerMTok": 0.30,
+      "outputCostPerMTok": 1.20,
+      "maxContextTokens": 200000
     }
   ]
 }

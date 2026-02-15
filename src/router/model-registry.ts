@@ -16,7 +16,7 @@ export type RoutingTable = Record<RoutingMode, Record<ComplexityTier, string[]>>
 
 const ALL_PROVIDERS: ApiProvider[] = [
   'anthropic', 'google', 'openai', 'deepseek',
-  'xai', 'moonshot', 'mistral', 'ollama',
+  'xai', 'moonshot', 'mistral', 'ollama', 'minimax',
 ];
 
 export class ModelRegistry {
@@ -62,8 +62,8 @@ export class ModelRegistry {
     if (provider === 'anthropic') {
       return config.anthropic.apiKey.length > 0 || config.anthropic.setupToken.length > 0;
     }
-    const providerConfig = config[provider] as { apiKey: string; baseUrl: string };
-    return providerConfig.apiKey.length > 0;
+    const providerConfig = config[provider] as { apiKey: string; baseUrl: string } | undefined;
+    return providerConfig?.apiKey?.length > 0 || false;
   }
 
   /**

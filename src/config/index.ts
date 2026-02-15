@@ -31,11 +31,6 @@ export function loadConfig(): ThrottleConfig {
 
   const config = deepMerge(defaults as unknown as Record<string, unknown>, fileConfig as Record<string, unknown>) as unknown as ThrottleConfig;
 
-  // Migrate legacy 'performance' mode → 'gigachad'
-  if ((config as Record<string, unknown>).mode === 'performance') {
-    config.mode = 'gigachad';
-  }
-
   // Provider API keys
   if (process.env['ANTHROPIC_API_KEY']) {
     config.anthropic.apiKey = process.env['ANTHROPIC_API_KEY'];
@@ -76,11 +71,14 @@ export function loadConfig(): ThrottleConfig {
   if (process.env['OLLAMA_BASE_URL']) {
     config.ollama.baseUrl = process.env['OLLAMA_BASE_URL'];
   }
+  if (process.env['MINIMAX_API_KEY']) {
+    config.minimax.apiKey = process.env['MINIMAX_API_KEY'];
+  }
 
   // Routing and general settings
   if (process.env['CLAWD_THROTTLE_MODE']) {
     const envMode = process.env['CLAWD_THROTTLE_MODE'];
-    if (envMode === 'eco' || envMode === 'standard' || envMode === 'gigachad') {
+    if (envMode === 'eco' || envMode === 'standard' || envMode === 'performance' || envMode === 'gigachad') {
       config.mode = envMode;
     }
   }

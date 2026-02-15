@@ -12,29 +12,39 @@ export async function callAnthropic(
   const url = `${config.anthropic.baseUrl}/v1/messages`;
   const startMs = performance.now();
 
-  const body: Record<string, unknown> = {
-    model: request.modelId,
-    max_tokens: request.maxTokens,
-    messages: request.messages.map(m => ({
-      role: m.role,
-      content: m.content,
-    })),
-  };
-
-  if (request.systemPrompt) {
-    body.system = request.systemPrompt;
+  // When rawBody is available, passthrough the original request body (preserves tools,
+  // tool_choice, thinking, metadata, tool_use/tool_result content blocks, etc.)
+  // Only override model.
+  let body: Record<string, unknown>;
+  if (request.rawBody) {
+    body = { ...request.rawBody, model: request.modelId };
+    delete body.stream; // non-streaming path
+  } else {
+    body = {
+      model: request.modelId,
+      max_tokens: request.maxTokens,
+      messages: request.messages.map(m => ({ role: m.role, content: m.content })),
+    };
+    if (request.systemPrompt) {
+      body.system = request.systemPrompt;
+    }
+    if (request.temperature !== undefined) {
+      body.temperature = request.temperature;
+    }
   }
-  if (request.temperature !== undefined) {
-    body.temperature = request.temperature;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...buildAnthropicAuthHeaders(config, keyOverride),
+    'anthropic-version': request.anthropicVersion || '2023-06-01',
+  };
+  if (request.anthropicBeta) {
+    headers['anthropic-beta'] = request.anthropicBeta;
   }
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...buildAnthropicAuthHeaders(config, keyOverride),
-      'anthropic-version': '2023-06-01',
-    },
+    headers,
     body: JSON.stringify(body),
   });
 

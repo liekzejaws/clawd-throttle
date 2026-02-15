@@ -7,6 +7,7 @@ import type { LogReader } from '../logging/reader.js';
 import { createLogger } from '../utils/logger.js';
 import { DedupCache } from '../proxy/dedup-cache.js';
 import { SessionStore } from '../router/session-store.js';
+import { ProxyError } from '../proxy/types.js';
 import {
   handleHealth,
   handleStats,
@@ -94,7 +95,20 @@ export function createHttpProxy(deps: HttpProxyDeps): http.Server {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`Request error: ${req.method} ${pathname}`, err);
 
-      if (message.includes('API error')) {
+      // If headers already sent (e.g. mid-stream error), we can't send an error response.
+      // Just destroy the response and log it.
+      if (res.headersSent) {
+        log.error(`Error after headers sent, destroying response: ${message}`);
+        res.destroy();
+        return;
+      }
+
+      if (err instanceof ProxyError && err.status === 429) {
+        // Pass through rate-limit errors as 429 so the client can retry properly
+        // (returning 502 causes the gateway to put the provider in permanent cooldown)
+        res.setHeader('Retry-After', '30');
+        sendError(res, 429, 'rate_limit_error', message);
+      } else if (message.includes('API error')) {
         sendError(res, 502, 'upstream_error', message);
       } else if (message.includes('Missing') || message.includes('empty')) {
         sendError(res, 400, 'invalid_request_error', message);

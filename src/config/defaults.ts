@@ -10,7 +10,7 @@ const configDir = process.env['CLAWD_THROTTLE_CONFIG_DIR']
   ?? path.join(os.homedir(), '.config', 'clawd-throttle');
 
 export const defaults: ThrottleConfig = {
-  mode: 'standard',
+  mode: 'performance',
   anthropic: {
     apiKey: '',
     setupToken: '',
@@ -45,6 +45,10 @@ export const defaults: ThrottleConfig = {
   ollama: {
     apiKey: '',
     baseUrl: 'http://localhost:11434/v1',
+  },
+  minimax: {
+    apiKey: '',
+    baseUrl: 'https://api.minimax.io/anthropic',
   },
   logging: {
     level: 'info',

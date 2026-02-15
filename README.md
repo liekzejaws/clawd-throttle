@@ -15,6 +15,7 @@ Clawd Throttle is an OpenClaw skill (MCP server) and HTTP reverse proxy that cla
 | **xAI** | Grok-4, Grok-3, Grok-3-mini, Grok-4.1-fast | $0.30–$3.00 | $0.50–$15.00 |
 | **Moonshot** | Kimi K2.5, K2-thinking | $0.35–$0.60 | $1.50–$2.50 |
 | **Mistral** | Mistral Large, Small, Codestral | $0.10–$2.00 | $0.30–$6.00 |
+| **MiniMax** | M2.5 | $0.30 | $1.20 |
 | **Ollama** | Local models (any) | $0.00 | $0.00 |
 
 All API keys are **optional**. Configure one or more providers — Clawd Throttle automatically routes to the best available model.
@@ -150,9 +151,10 @@ Routing uses **preference lists** — ordered arrays of models per (mode, tier).
 
 | Mode | Simple | Standard | Complex |
 |------|--------|----------|---------|
-| **eco** | Ollama, Flash-Lite, GPT-5-nano | Flash, GPT-4o-mini, DeepSeek | DeepSeek-R1, Kimi, Sonnet |
-| **standard** | Flash, GPT-4o-mini, DeepSeek | Kimi, Sonnet, GPT-5.1 | Opus 4.5, GPT-5.2, Grok-4 |
-| **performance** | Haiku, GPT-5-mini, Kimi | Sonnet, GPT-5.1, Grok-3 | Opus 4.6, GPT-5.2, o3 |
+| **eco** | Grok Fast, Flash, GPT-5-nano | Flash, Grok Fast, GPT-4o-mini | Haiku, DeepSeek-R1, Kimi |
+| **standard** | Grok Fast, Flash, Haiku | Haiku, Grok Fast, Flash | Sonnet, Haiku, GPT-5.1 |
+| **performance** (default) | Haiku, MiniMax, Grok Fast | MiniMax, Haiku, Kimi | MiniMax, Sonnet, Kimi |
+| **gigachad** | Haiku, Grok Fast, Flash | Sonnet, Haiku, GPT-5.1 | Opus 4.6, Sonnet, GPT-5.2 |
 
 ## How It Works
 
@@ -197,6 +199,7 @@ Config file: `~/.config/clawd-throttle/config.json`
 | `XAI_API_KEY` | xAI/Grok API key |
 | `MOONSHOT_API_KEY` | Moonshot/Kimi API key |
 | `MISTRAL_API_KEY` | Mistral API key |
+| `MINIMAX_API_KEY` | MiniMax API key |
 | `OLLAMA_BASE_URL` | Ollama base URL (default: http://localhost:11434/v1) |
 | `CLAWD_THROTTLE_MODE` | eco, standard, or performance |
 | `CLAWD_THROTTLE_LOG_LEVEL` | debug, info, warn, error |

@@ -1,4 +1,4 @@
-import type { ProxyRequest, ProxyResponse, StreamingProxyResult, ProviderConfig } from './types.js';
+import type { ProxyRequest, ProxyResponse, StreamingProxyResult } from './types.js';
 import { ProxyError } from './types.js';
 import type { ThrottleConfig } from '../config/types.js';
 import type { ApiProvider } from '../router/types.js';
@@ -10,14 +10,13 @@ import { callAnthropicStream } from './anthropic-stream.js';
 import { callGoogleStream } from './google-stream.js';
 import { callOpenAiCompat } from './openai-compat.js';
 import { callOpenAiCompatStream } from './openai-compat-stream.js';
+import { callMinimax } from './minimax.js';
+import { callMinimaxStream } from './minimax-stream.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('dispatcher');
 
-/**
- * Extract { apiKey, baseUrl } for any provider from the config.
- */
-export function getProviderConfig(provider: ApiProvider, config: ThrottleConfig): ProviderConfig {
+function getProviderConfig(provider: ApiProvider, config: ThrottleConfig) {
   const section = config[provider] as { apiKey: string; baseUrl: string };
   return { apiKey: section.apiKey, baseUrl: section.baseUrl };
 }
@@ -111,6 +110,8 @@ export async function dispatch(
         return await dispatchAnthropic(request, config);
       case 'google':
         return await callGoogle(request, config);
+      case 'minimax':
+        return await callMinimax(request, config);
       default:
         // OpenAI, DeepSeek, xAI, Moonshot, Mistral, Ollama
         return await callOpenAiCompat(request, getProviderConfig(request.provider, config));
@@ -130,6 +131,8 @@ export async function streamDispatch(
         return await dispatchAnthropicStream(request, config);
       case 'google':
         return await callGoogleStream(request, config);
+      case 'minimax':
+        return await callMinimaxStream(request, config);
       default:
         // OpenAI, DeepSeek, xAI, Moonshot, Mistral, Ollama
         return await callOpenAiCompatStream(request, getProviderConfig(request.provider, config));

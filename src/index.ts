@@ -89,7 +89,7 @@ async function main(): Promise<void> {
   if (!flags['http-only']) {
     const server = new McpServer({
       name: 'clawd-throttle',
-      version: '2.2.0',
+      version: '2.3.0',
     });
 
     registerTools(server, config, registry, weights, logWriter, logReader, routingTable);

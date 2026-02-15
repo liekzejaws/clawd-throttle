@@ -12,6 +12,12 @@ export interface ProxyRequest {
   systemPrompt?: string;
   maxTokens: number;
   temperature?: number;
+  /** Original raw request body for passthrough to same-format upstream (preserves tools, tool_choice, thinking, etc.). */
+  rawBody?: Record<string, unknown>;
+  /** Anthropic API version from the incoming request (passed through to upstream). */
+  anthropicVersion?: string;
+  /** Anthropic beta features header from the incoming request. */
+  anthropicBeta?: string;
 }
 
 export interface ProxyResponse {

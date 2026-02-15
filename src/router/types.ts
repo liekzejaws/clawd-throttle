@@ -3,7 +3,7 @@ import type { RoutingMode } from '../config/types.js';
 
 export type ApiProvider =
   | 'anthropic' | 'google' | 'openai' | 'deepseek'
-  | 'xai' | 'moonshot' | 'mistral' | 'ollama';
+  | 'xai' | 'moonshot' | 'mistral' | 'ollama' | 'minimax';
 
 export interface ModelSpec {
   id: string;
@@ -16,10 +16,6 @@ export interface ModelSpec {
 
 export type OverrideKind =
   | 'heartbeat'
-  | 'summary'
-  | 'force_opus'
-  | 'force_sonnet'
-  | 'force_flash'
   | 'force_model'
   | 'tool_calling'
   | 'sub_agent_inherit'

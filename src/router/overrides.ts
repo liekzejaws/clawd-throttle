@@ -60,13 +60,6 @@ export const FORCE_MODEL_MAP: Record<string, string> = {
   ollama: 'ollama-default',
 };
 
-// Legacy override kinds for backward compatibility
-const LEGACY_FORCE_KINDS: Record<string, OverrideResult['kind']> = {
-  opus: 'force_opus',
-  sonnet: 'force_sonnet',
-  flash: 'force_flash',
-};
-
 export function detectOverrides(
   messages: Array<{ role: string; content: string }>,
   forceModel: string | undefined,
@@ -89,18 +82,16 @@ export function detectOverrides(
 
   // 2. Explicit force commands (via forceModel parameter)
   if (forceModel && FORCE_MODEL_MAP[forceModel]) {
-    const kind = LEGACY_FORCE_KINDS[forceModel] ?? 'force_model';
-    return { kind, forcedModelId: FORCE_MODEL_MAP[forceModel] };
+    return { kind: 'force_model', forcedModelId: FORCE_MODEL_MAP[forceModel] };
   }
 
   // 3. Slash-command force (e.g. /opus, /grok, /deepseek)
   const trimmed = lastUserContent.trim().toLowerCase();
   if (trimmed.startsWith('/')) {
-    const command = trimmed.split(/\s/)[0]!.slice(1); // strip leading /
+    const command = trimmed.split(/\s/)[0]!.slice(1);
     if (FORCE_MODEL_MAP[command]) {
-      const kind = LEGACY_FORCE_KINDS[command] ?? 'force_model';
       log.debug(`Override: slash command /${command} => ${FORCE_MODEL_MAP[command]}`);
-      return { kind, forcedModelId: FORCE_MODEL_MAP[command] };
+      return { kind: 'force_model', forcedModelId: FORCE_MODEL_MAP[command] };
     }
   }
 

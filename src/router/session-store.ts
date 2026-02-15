@@ -78,9 +78,9 @@ export class SessionStore {
       }
 
       // Keep existing pin, just update lastUsedAt
-      existing.tier; // use existing
       this.sessions.set(sessionId, {
-        ...existing,
+        modelId: existing.modelId,
+        tier: existing.tier,
         lastUsedAt: Date.now(),
       });
       return existing;
